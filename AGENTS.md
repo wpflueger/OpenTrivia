@@ -5,6 +5,7 @@ This file provides guidelines for agentic coding agents working on OpenTrivia.
 ## Project Overview
 
 OpenTrivia is a P2P trivia game platform (open alternative to Kahoot) with:
+
 - **Host-as-hub model**: Host device runs game server logic; players connect via WebRTC
 - **Web Orchestrator**: Next.js on Vercel for landing, routing, signaling
 - **Git-based packs**: Declarative JSON/YAML question packs loaded from Git repos
@@ -21,29 +22,10 @@ OpenTrivia is a P2P trivia game platform (open alternative to Kahoot) with:
 ## Repository Structure
 
 ```
-/
-├── apps/
-│   └── web/              # Next.js orchestrator + host/player clients
-│       └── src/
-│           ├── app/      # App Router pages and API routes
-│           ├── stores/   # Zustand state stores
-│           └── lib/      # Utilities (WebRTC, etc.)
-├── packages/
-│   ├── protocol/         # Message types, validators
-│   │   └── src/
-│   │       ├── index.ts           # Type exports
-│   │       ├── validators.ts      # Message validators
-│   │       └── validators.test.ts # Unit tests
-│   └── pack-schema/      # JSON schema, loader
-│       └── src/
-│           ├── schema.ts          # Type definitions
-│           ├── validator.ts       # Validation functions
-│           ├── loader.ts          # Git pack loader
-│           └── validator.test.ts  # Unit tests
-├── docs/                 # Documentation
-├── package.json          # Root workspace config
-├── turbo.json            # Turborepo config
-└── tsconfig.json         # TypeScript config references
+apps/web/              # Next.js orchestrator + host/player clients
+packages/
+  protocol/            # Message types, validators
+  pack-schema/         # JSON schema, loader
 ```
 
 ## Build / Lint / Test Commands
@@ -61,30 +43,30 @@ bun run typecheck
 # Lint all files
 bun run lint
 
+# Format code
+bun run format
+
 # Run all tests
 bun test
 
 # Run tests in watch mode
 bun test --watch
 
-# Run a single test file
-bun test <path-to-test-file>
+# Run a single test file (recommended - run from package dir)
+cd packages/protocol && bun test src/validators.test.ts
+cd packages/pack-schema && bun test src/validator.test.ts
 
-# Run tests matching a pattern
-bun test --grep "pattern"
-
-# Run tests in a specific package
+# Or run all tests in a specific package
 bun test --filter=protocol
-
-# Format code
-bun run format
+bun test --filter=pack-schema
 ```
 
 ## Code Style Guidelines
 
 ### Imports
 
-- Use path aliases defined in `tsconfig.json` (e.g., `@/components`, `@/lib`)
+- Use path aliases defined in `tsconfig.json` (e.g., `@opentriiva/protocol`)
+- Due to `verbatimModuleSyntax`, use `.js` extension for relative imports: `import { X } from './foo.js'`
 - Avoid relative imports beyond 2 levels (`../../`)
 - Order: external → alias → relative
 - Prefer explicit named exports
@@ -98,7 +80,7 @@ bun run format
 
 ### TypeScript
 
-- Enable `strict: true` in tsconfig
+- `strict: true` is enabled in tsconfig
 - Explicit return types for exported functions
 - Avoid `any` - use `unknown` + type narrowing
 - Use `interface` for object shapes, `type` for unions/intersections
@@ -106,13 +88,13 @@ bun run format
 
 ### Naming Conventions
 
-| Type | Convention | Example |
-|------|------------|---------|
-| Variables, functions | camelCase | `getQuestion`, `playerId` |
-| Components, types | PascalCase | `GameLobby`, `QuestionProps` |
-| Constants | SCREAMING_SNAKE | `MAX_PLAYERS`, `DEFAULT_TIMER` |
-| Files (components) | PascalCase | `QuestionCard.tsx` |
-| Files (utilities) | kebab-case | `date-utils.ts` |
+| Type                 | Convention      | Example                        |
+| -------------------- | --------------- | ------------------------------ |
+| Variables, functions | camelCase       | `getQuestion`, `playerId`      |
+| Components, types    | PascalCase      | `GameLobby`, `QuestionProps`   |
+| Constants            | SCREAMING_SNAKE | `MAX_PLAYERS`, `DEFAULT_TIMER` |
+| Files (components)   | PascalCase      | `QuestionCard.tsx`             |
+| Files (utilities)    | kebab-case      | `date-utils.ts`                |
 
 ### React Patterns
 
@@ -130,30 +112,16 @@ bun run format
 - Never expose internal errors to users - wrap with user-friendly messages
 - Log errors with appropriate context for debugging
 
-### State Management (Zustand)
-
-```typescript
-// Store naming: useStore
-interface GameStore {
-  phase: GamePhase;
-  players: Player[];
-  questions: Question[];
-  // actions
-  startGame: () => void;
-  addPlayer: (player: Player) => void;
-}
-```
-
 ## Message Protocol
 
 All WebRTC messages follow this envelope:
 
 ```typescript
 interface Message {
-  v: number;           // protocol version
-  t: string;           // message type
-  id: string;          // message UUID
-  ts: number;          // timestamp
+  v: number; // protocol version
+  t: string; // message type
+  id: string; // message UUID
+  ts: number; // timestamp
   payload: unknown;
 }
 ```
@@ -162,7 +130,7 @@ Core message types: `room.join`, `room.joined`, `lobby.update`, `game.start`, `q
 
 ## Pack Schema
 
-Question packs use a declarative JSON schema:
+Question packs use declarative JSON with:
 
 ```typescript
 interface PackManifest {
@@ -172,16 +140,14 @@ interface PackManifest {
   author: string;
   license: string;
   rounds: Round[];
-  assets?: AssetManifest;
 }
 
 interface Question {
   id: string;
-  type: 'mcq' | 'boolean';
+  type: "mcq" | "boolean";
   prompt: string;
   choices: Choice[];
   answer: Answer;
-  media?: QuestionMedia;
 }
 ```
 
@@ -189,8 +155,6 @@ interface Question {
 
 - Sanitize all user input (especially pack content)
 - No `eval()` or dynamic code execution
-- Strict CSP headers
-- Rate limit signaling endpoints
 - Validate all WebRTC messages before processing
 
 ## Testing
@@ -202,26 +166,8 @@ interface Question {
 ## Acceptance Criteria
 
 Before considering a feature complete:
+
 - [ ] `bun install && bun test && bun run build` passes
 - [ ] `bun run typecheck` passes with no errors
 - [ ] Relevant unit tests added for new logic
 - [ ] No hardcoded secrets or credentials
-
-## API Routes
-
-### Signaling
-
-- `POST /api/session/create` - Create new game room
-- `GET/POST /api/session/[roomId]/offer` - WebRTC offer exchange
-- `GET/POST /api/session/[roomId]/answer` - WebRTC answer exchange
-- `GET/POST /api/session/[roomId]/candidate` - ICE candidate exchange
-
-### Packs
-
-- `POST /api/packs/load` - Load pack from GitHub URL
-
-## References
-
-- Technical Spec: `OpenTrivia_Technical_Spec.md`
-- Features TODO: `OpenTrivia_Features_TODO.md`
-- PRD: `OpenTrivia_PRD.md`
