@@ -23,9 +23,10 @@ function LobbyContent() {
   } = useGameStore();
 
   const displayRoomId = roomId || storeRoomId;
-  const joinUrl = typeof window !== 'undefined' 
-    ? `${window.location.origin}/join?room=${displayRoomId}` 
-    : `/join?room=${displayRoomId}`;
+  
+  // QR code shows room code - players enter it manually
+  // This works across devices on same network
+  const qrValue = `OPENTRIVIA:${displayRoomId}`;
 
   useEffect(() => {
     if (roomId) {
@@ -33,13 +34,8 @@ function LobbyContent() {
     }
   }, [roomId, setRoomId]);
 
-  useEffect(() => {
-    const demoPlayers: Player[] = [
-      { id: 'demo-1', nickname: 'Alice', isReady: true, isConnected: true, score: 0 },
-      { id: 'demo-2', nickname: 'Bob', isReady: false, isConnected: true, score: 0 },
-    ];
-    demoPlayers.forEach(addPlayer);
-  }, [addPlayer]);
+  // Note: In production, players would connect via WebRTC
+  // Demo players removed - real players will join via /join page
 
   const handleStartGame = () => {
     startGame();
@@ -50,8 +46,16 @@ function LobbyContent() {
     router.push('/host');
   };
 
-  const copyJoinLink = () => {
-    navigator.clipboard.writeText(joinUrl);
+  const handleCopyRoomCode = () => {
+    navigator.clipboard.writeText(displayRoomId);
+  };
+
+  const handleCopyJoinLink = () => {
+    // Generate join link based on current location
+    if (typeof window !== 'undefined') {
+      const joinLink = `${window.location.origin}/join?room=${displayRoomId}`;
+      navigator.clipboard.writeText(joinLink);
+    }
   };
 
   if (!displayRoomId) {
@@ -84,14 +88,15 @@ function LobbyContent() {
           <div className="mb-8 flex flex-col items-center">
             <div className="bg-white p-4 rounded-xl border-2 border-gray-200">
               <QRCodeSVG
-                value={joinUrl}
+                value={qrValue}
                 size={200}
                 level="M"
                 includeMargin={true}
               />
             </div>
             <p className="mt-4 text-sm text-gray-600 text-center">
-              Scan to join on your phone
+              Scan with phone camera or enter room code: <br/>
+              <span className="font-bold text-xl text-primary-700">{displayRoomId}</span>
             </p>
             <button
               onClick={() => setShowQR(false)}
@@ -154,8 +159,7 @@ function LobbyContent() {
           </button>
           <button
             onClick={handleStartGame}
-            disabled={players.length === 0 || readyPlayers === 0}
-            className="flex-1 py-3 bg-primary-600 text-white font-semibold rounded-xl hover:bg-primary-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            className="flex-1 py-3 bg-primary-600 text-white font-semibold rounded-xl hover:bg-primary-700 transition-colors"
           >
             Start Game
           </button>
@@ -177,7 +181,17 @@ function LobbyContent() {
 
         <div className="flex gap-3">
           <button
-            onClick={copyJoinLink}
+            onClick={handleCopyRoomCode}
+            className="flex items-center gap-2 px-4 py-2 border-2 border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+              <path d="M8 3a1 1 0 011-1h2a1 1 0 110 2H9a1 1 0 01-1-1z" />
+              <path d="M6 3a2 2 0 00-2 2v11a2 2 0 002 2h8a2 2 0 002-2V5a2 2 0 00-2-2 3 3 0 01-3 3H9a3 3 0 01-3-3z" />
+            </svg>
+            Copy Code
+          </button>
+          <button
+            onClick={handleCopyJoinLink}
             className="flex items-center gap-2 px-4 py-2 border-2 border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
           >
             <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">

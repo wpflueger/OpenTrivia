@@ -1,6 +1,6 @@
 'use client';
 
-import { Suspense, useEffect, useState } from 'react';
+import { Suspense, useEffect, useState, useRef } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 
 type PlayerPhase = 'connecting' | 'lobby' | 'question' | 'answered' | 'reveal' | 'leaderboard' | 'ended';
@@ -24,6 +24,7 @@ interface PlayerState {
 function PlayerGameContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const wsRef = useRef<WebSocket | null>(null);
 
   const [state, setState] = useState<PlayerState>({
     phase: 'connecting',
@@ -36,13 +37,13 @@ function PlayerGameContent() {
     timeRemaining: 0,
   });
 
-  const [selectedChoices, setSelectedChoices] = useState<string[]>([]);
-  const [canSubmit, setCanSubmit] = useState(false);
+  const [selectedChoice, setSelectedChoice] = useState<string | null>(null);
+  const [connectionStatus, setConnectionStatus] = useState<'disconnected' | 'connecting' | 'connected'>('disconnected');
 
   useEffect(() => {
     const playerId = searchParams.get('playerId');
     const nickname = searchParams.get('nickname');
-    const roomId = window.location.pathname.split('/').pop();
+    const roomId = typeof window !== 'undefined' ? window.location.pathname.split('/').pop() : '';
 
     if (playerId && nickname && roomId) {
       setState((prev) => ({
@@ -53,7 +54,26 @@ function PlayerGameContent() {
         phase: 'lobby',
       }));
 
+      // Try to connect to signaling server
+      // In production, this would be WebRTC - for now we use a simple approach
+      setConnectionStatus('connecting');
+      
+      // Simulate connection for demo
       setTimeout(() => {
+        setConnectionStatus('connected');
+      }, 1000);
+    } else {
+      router.push('/join');
+    }
+  }, [searchParams, router]);
+
+  // For demo: simulate receiving a question after host starts
+  // In production, this would come via WebRTC from host
+  useEffect(() => {
+    if (state.phase === 'lobby' && connectionStatus === 'connected') {
+      // Demo: auto-start question after 5 seconds for demonstration
+      // In production, host would send this via WebRTC
+      const timer = setTimeout(() => {
         setState((prev) => ({
           ...prev,
           question: {
@@ -70,14 +90,14 @@ function PlayerGameContent() {
           phase: 'question',
           timeRemaining: 20,
         }));
-      }, 3000);
-    } else {
-      router.push('/join');
+      }, 5000);
+
+      return () => clearTimeout(timer);
     }
-  }, [searchParams, router]);
+  }, [state.phase, connectionStatus]);
 
   useEffect(() => {
-    if (state.phase === 'question' && state.question) {
+    if (state.phase === 'question' && state.question && state.timeRemaining > 0) {
       const timer = setInterval(() => {
         setState((prev) => {
           if (prev.timeRemaining <= 1) {
@@ -90,19 +110,18 @@ function PlayerGameContent() {
 
       return () => clearInterval(timer);
     }
-  }, [state.phase, state.question]);
+  }, [state.phase, state.question, state.timeRemaining]);
 
   const handleSelectChoice = (choiceId: string) => {
     if (state.phase !== 'question') return;
-
-    setSelectedChoices([choiceId]);
-    setCanSubmit(true);
+    setSelectedChoice(choiceId);
   };
 
   const handleSubmit = () => {
-    if (selectedChoices.length === 0) return;
+    if (!selectedChoice || state.phase !== 'question') return;
 
-    const isCorrect = selectedChoices[0] === 'b';
+    // In production, send answer to host via WebRTC
+    const isCorrect = selectedChoice === 'b';
     const bonus = state.timeRemaining * 50;
     const scoreDelta = isCorrect ? 1000 + bonus : 0;
 
@@ -113,12 +132,13 @@ function PlayerGameContent() {
       lastAnswerCorrect: isCorrect,
     }));
 
+    // Demo: show reveal after 3 seconds
     setTimeout(() => {
       setState((prev) => ({ ...prev, phase: 'reveal' }));
-    }, 2000);
+    }, 3000);
   };
 
-  if (state.phase === 'connecting') {
+  if (state.phase === 'connecting' || connectionStatus === 'connecting') {
     return (
       <div className="flex flex-col items-center justify-center min-h-[60vh]">
         <div className="animate-spin rounded-full h-16 w-16 border-4 border-primary-600 border-t-transparent"></div>
@@ -129,11 +149,20 @@ function PlayerGameContent() {
 
   if (state.phase === 'lobby') {
     return (
-      <div className="flex flex-col items-center justify-center min-h-[60vh]">
-        <h1 className="text-3xl font-bold text-gray-900 mb-4">Welcome, {state.nickname}!</h1>
-        <p className="text-xl text-gray-600 mb-8">Room: {state.roomId}</p>
-        <div className="animate-pulse bg-primary-100 px-6 py-4 rounded-xl">
-          <p className="text-primary-700 font-semibold">Waiting for host to start...</p>
+      <div className="flex flex-col items-center justify-center min-h-[60vh] max-w-md mx-auto text-center px-4">
+        <div className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mb-6">
+          <svg xmlns="http://www.w3.org/2000/svg" className="h-10 w-10 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+          </svg>
+        </div>
+        <h1 className="text-2xl font-bold text-gray-900 mb-2">You're Connected!</h1>
+        <p className="text-gray-600 mb-4">Room: <span className="font-bold">{state.roomId}</span></p>
+        <p className="text-gray-600 mb-6">Waiting for host to start the game...</p>
+        
+        <div className="bg-primary-50 p-4 rounded-xl w-full">
+          <p className="text-sm text-primary-800">
+            <strong>Tip:</strong> Watch the host's screen for questions, then tap your answer here!
+          </p>
         </div>
       </div>
     );
@@ -141,7 +170,7 @@ function PlayerGameContent() {
 
   if (state.phase === 'question' && state.question) {
     return (
-      <div className="max-w-lg mx-auto">
+      <div className="max-w-lg mx-auto px-4">
         <div className="bg-white rounded-2xl shadow-xl p-6 mb-6">
           <div className="flex justify-between items-center mb-4">
             <span className="text-lg font-semibold text-gray-600">Question</span>
@@ -163,7 +192,7 @@ function PlayerGameContent() {
                 onClick={() => handleSelectChoice(choice.id)}
                 disabled={state.phase !== 'question'}
                 className={`w-full p-4 rounded-xl border-2 text-left transition-all ${
-                  selectedChoices.includes(choice.id)
+                  selectedChoice === choice.id
                     ? 'border-primary-600 bg-primary-50'
                     : 'border-gray-200 hover:border-primary-300'
                 }`}
@@ -177,7 +206,7 @@ function PlayerGameContent() {
           </div>
         </div>
 
-        {canSubmit && (
+        {selectedChoice && state.phase === 'question' && (
           <button
             onClick={handleSubmit}
             className="w-full py-4 bg-primary-600 text-white text-lg font-semibold rounded-xl shadow-lg hover:bg-primary-700 transition-colors"
@@ -196,9 +225,9 @@ function PlayerGameContent() {
           {state.lastAnswerCorrect ? '✅' : '⏰'}
         </div>
         <h2 className="text-2xl font-bold text-gray-900 mb-2">
-          {state.lastAnswerCorrect ? 'Correct!' : 'Too late!'}
+          {state.lastAnswerCorrect ? 'Answer Submitted!' : 'Too late!'}
         </h2>
-        <p className="text-xl text-gray-600">Waiting for others...</p>
+        <p className="text-xl text-gray-600">Waiting for host...</p>
       </div>
     );
   }
@@ -210,7 +239,7 @@ function PlayerGameContent() {
           {state.lastAnswerCorrect ? '🎉' : '😔'}
         </div>
         <h2 className="text-2xl font-bold text-gray-900 mb-2">
-          {state.lastAnswerCorrect ? 'Great job!' : 'Better luck next time!'}
+          {state.lastAnswerCorrect ? 'Correct!' : 'Wrong answer'}
         </h2>
         <p className="text-xl text-primary-600 font-semibold">Score: {state.score}</p>
       </div>
