@@ -1,12 +1,33 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useGameStore } from '@/stores/gameStore';
+
+interface QuizPack {
+  id: string;
+  title: string;
+  description: string;
+  questionCount: number;
+}
+
+const LOCAL_QUIZZES: QuizPack[] = [
+  { id: 'general-knowledge', title: 'General Knowledge', description: 'A mix of general knowledge', questionCount: 5 },
+  { id: 'science', title: 'Science', description: 'Science and nature', questionCount: 5 },
+  { id: 'history', title: 'History', description: 'World history', questionCount: 5 },
+  { id: 'sports', title: 'Sports', description: 'Sports trivia', questionCount: 5 },
+  { id: 'geography', title: 'Geography', description: 'World geography', questionCount: 5 },
+  { id: 'music', title: 'Music', description: 'Music questions', questionCount: 5 },
+  { id: 'movies', title: 'Movies', description: 'Film trivia', questionCount: 5 },
+  { id: 'food', title: 'Food', description: 'Food and cuisine', questionCount: 5 },
+  { id: 'technology', title: 'Technology', description: 'Tech questions', questionCount: 5 },
+  { id: 'animals', title: 'Animals', description: 'Animal facts', questionCount: 5 },
+];
 
 export default function HostPage() {
   const router = useRouter();
   const [packUrl, setPackUrl] = useState('');
+  const [selectedLocalPack, setSelectedLocalPack] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
   const setQuestions = useGameStore((state) => state.setQuestions);
@@ -29,7 +50,14 @@ export default function HostPage() {
       const roomId = generateRoomId();
       setRoomId(roomId);
 
-      if (packUrl) {
+      if (selectedLocalPack) {
+        const response = await fetch(`/api/packs/local/${selectedLocalPack}`);
+        if (!response.ok) {
+          throw new Error('Failed to load local pack');
+        }
+        const data = await response.json();
+        setQuestions(data.questions);
+      } else if (packUrl) {
         const response = await fetch('/api/packs/load', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -99,20 +127,49 @@ export default function HostPage() {
 
         <div className="space-y-6">
           <div>
+            <label htmlFor="localPack" className="block text-sm font-medium text-gray-700 mb-2">
+              Select Local Quiz
+            </label>
+            <select
+              id="localPack"
+              value={selectedLocalPack}
+              onChange={(e) => {
+                setSelectedLocalPack(e.target.value);
+                if (e.target.value) setPackUrl('');
+              }}
+              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent bg-white"
+            >
+              <option value="">-- Select a quiz --</option>
+              {LOCAL_QUIZZES.map((quiz) => (
+                <option key={quiz.id} value={quiz.id}>
+                  {quiz.title} ({quiz.questionCount} questions)
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div className="relative flex items-center py-2">
+            <div className="flex-grow border-t border-gray-300"></div>
+            <span className="flex-shrink-0 mx-4 text-gray-400 text-sm">OR</span>
+            <div className="flex-grow border-t border-gray-300"></div>
+          </div>
+
+          <div>
             <label htmlFor="packUrl" className="block text-sm font-medium text-gray-700 mb-2">
-              Question Pack (optional)
+              Load from GitHub URL
             </label>
             <input
               id="packUrl"
               type="url"
               placeholder="https://github.com/user/trivia-pack"
               value={packUrl}
-              onChange={(e) => setPackUrl(e.target.value)}
-              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+              onChange={(e) => {
+                setPackUrl(e.target.value);
+                if (e.target.value) setSelectedLocalPack('');
+              }}
+              disabled={!!selectedLocalPack}
+              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent disabled:bg-gray-100 disabled:cursor-not-allowed"
             />
-            <p className="mt-2 text-sm text-gray-500">
-              Leave empty to play with demo questions
-            </p>
           </div>
 
           {error && (
