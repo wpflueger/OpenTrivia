@@ -4,10 +4,14 @@ export interface PeerConnection {
   dataChannel?: RTCDataChannel;
 }
 
-export type ConnectionState = 'disconnected' | 'connecting' | 'connected' | 'failed';
+export type ConnectionState =
+  | "disconnected"
+  | "connecting"
+  | "connected"
+  | "failed";
 
 export interface SignalingMessage {
-  type: 'offer' | 'answer' | 'candidate';
+  type: "offer" | "answer" | "candidate";
   payload: RTCSessionDescriptionInit | RTCIceCandidateInit;
 }
 
@@ -62,14 +66,14 @@ export class HostWebRTCManager {
       await this.checkForNewPlayers();
       await this.checkForCandidates();
     } catch (error) {
-      console.error('Poll error:', error);
+      console.error("Poll error:", error);
     }
   }
 
   private async checkForNewPlayers(): Promise<void> {
     try {
       const response = await fetch(
-        `${this.signalingUrl}/session/${this.roomId}/offer?hostToken=${this.hostToken}`
+        `${this.signalingUrl}/api/session/${this.roomId}/offer?hostToken=${this.hostToken}`,
       );
       const data = await response.json();
 
@@ -81,7 +85,7 @@ export class HostWebRTCManager {
         }
       }
     } catch (error) {
-      console.error('Error checking for players:', error);
+      console.error("Error checking for players:", error);
     }
   }
 
@@ -89,7 +93,7 @@ export class HostWebRTCManager {
     this.processedPlayers.add(playerId);
 
     const connection = new RTCPeerConnection({
-      iceServers: [{ urls: 'stun:stun.l.google.com:19302' }],
+      iceServers: [{ urls: "stun:stun.l.google.com:19302" }],
     });
 
     connection.onicecandidate = (event) => {
@@ -103,7 +107,10 @@ export class HostWebRTCManager {
     };
 
     connection.onconnectionstatechange = () => {
-      if (connection.connectionState === 'disconnected' || connection.connectionState === 'failed') {
+      if (
+        connection.connectionState === "disconnected" ||
+        connection.connectionState === "failed"
+      ) {
         this.handlePlayerLeave(playerId);
       }
     };
@@ -112,7 +119,7 @@ export class HostWebRTCManager {
 
     try {
       const response = await fetch(
-        `${this.signalingUrl}/session/${this.roomId}/offer?hostToken=${this.hostToken}&playerId=${playerId}`
+        `${this.signalingUrl}/api/session/${this.roomId}/offer?hostToken=${this.hostToken}&playerId=${playerId}`,
       );
       const data = await response.json();
 
@@ -126,16 +133,20 @@ export class HostWebRTCManager {
         await this.sendAnswer(playerId, answer);
       }
     } catch (error) {
-      console.error('Error handling new player:', error);
+      console.error("Error handling new player:", error);
+      return;
     }
 
     this.onPlayerJoin?.(playerId);
   }
 
-  private async sendAnswer(playerId: string, answer: RTCSessionDescriptionInit): Promise<void> {
-    await fetch(`${this.signalingUrl}/session/${this.roomId}/answer`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+  private async sendAnswer(
+    playerId: string,
+    answer: RTCSessionDescriptionInit,
+  ): Promise<void> {
+    await fetch(`${this.signalingUrl}/api/session/${this.roomId}/answer`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         roomId: this.roomId,
         playerId,
@@ -145,10 +156,13 @@ export class HostWebRTCManager {
     });
   }
 
-  private async sendCandidate(playerId: string, candidate: RTCIceCandidateInit): Promise<void> {
-    await fetch(`${this.signalingUrl}/session/${this.roomId}/candidate`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+  private async sendCandidate(
+    playerId: string,
+    candidate: RTCIceCandidateInit,
+  ): Promise<void> {
+    await fetch(`${this.signalingUrl}/api/session/${this.roomId}/candidate`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         roomId: this.roomId,
         playerId,
@@ -161,30 +175,34 @@ export class HostWebRTCManager {
   private async checkForCandidates(): Promise<void> {
     try {
       const response = await fetch(
-        `${this.signalingUrl}/session/${this.roomId}/candidate?hostToken=${this.hostToken}`
+        `${this.signalingUrl}/api/session/${this.roomId}/candidate?hostToken=${this.hostToken}`,
       );
       const data = await response.json();
 
       if (data.candidatesByPlayer) {
-        for (const [playerId, candidates] of Object.entries(data.candidatesByPlayer)) {
+        for (const [playerId, candidates] of Object.entries(
+          data.candidatesByPlayer,
+        )) {
           const connection = this.connections.get(playerId);
           if (!connection) continue;
 
           const lastProcessed = this.processedCandidates.get(playerId) || 0;
-          const newCandidates = (candidates as RTCIceCandidateInit[]).slice(lastProcessed);
+          const newCandidates = (candidates as RTCIceCandidateInit[]).slice(
+            lastProcessed,
+          );
 
           for (const candidate of newCandidates) {
             try {
               await connection.addIceCandidate(new RTCIceCandidate(candidate));
               this.processedCandidates.set(playerId, lastProcessed + 1);
             } catch (error) {
-              console.error('Error adding ICE candidate:', error);
+              console.error("Error adding ICE candidate:", error);
             }
           }
         }
       }
     } catch (error) {
-      console.error('Error checking for candidates:', error);
+      console.error("Error checking for candidates:", error);
     }
   }
 
@@ -199,7 +217,7 @@ export class HostWebRTCManager {
         const data = JSON.parse(event.data);
         this.onMessage?.(playerId, data);
       } catch (error) {
-        console.error('Failed to parse message:', error);
+        console.error("Failed to parse message:", error);
       }
     };
 
@@ -218,7 +236,7 @@ export class HostWebRTCManager {
 
   send(playerId: string, data: unknown): void {
     const channel = this.dataChannels.get(playerId);
-    if (channel && channel.readyState === 'open') {
+    if (channel && channel.readyState === "open") {
       channel.send(JSON.stringify(data));
     }
   }
@@ -226,7 +244,7 @@ export class HostWebRTCManager {
   broadcast(data: unknown): void {
     const message = JSON.stringify(data);
     this.dataChannels.forEach((channel) => {
-      if (channel.readyState === 'open') {
+      if (channel.readyState === "open") {
         channel.send(message);
       }
     });
@@ -234,7 +252,7 @@ export class HostWebRTCManager {
 
   getConnectedPlayers(): string[] {
     return Array.from(this.dataChannels.entries())
-      .filter(([, channel]) => channel.readyState === 'open')
+      .filter(([, channel]) => channel.readyState === "open")
       .map(([playerId]) => playerId);
   }
 
@@ -277,7 +295,7 @@ export class PlayerWebRTCManager {
 
   async connect(): Promise<void> {
     this.connection = new RTCPeerConnection({
-      iceServers: [{ urls: 'stun:stun.l.google.com:19302' }],
+      iceServers: [{ urls: "stun:stun.l.google.com:19302" }],
     });
 
     this.connection.onicecandidate = (event) => {
@@ -287,13 +305,15 @@ export class PlayerWebRTCManager {
     };
 
     this.connection.onconnectionstatechange = () => {
-      if (this.connection?.connectionState === 'disconnected' ||
-          this.connection?.connectionState === 'failed') {
+      if (
+        this.connection?.connectionState === "disconnected" ||
+        this.connection?.connectionState === "failed"
+      ) {
         this.onDisconnected?.();
       }
     };
 
-    this.dataChannel = this.connection.createDataChannel('game');
+    this.dataChannel = this.connection.createDataChannel("game");
     this.setupDataChannel(this.dataChannel);
 
     const offer = await this.connection.createOffer();
@@ -309,14 +329,14 @@ export class PlayerWebRTCManager {
       await this.checkForAnswer();
       await this.checkForCandidates();
     } catch (error) {
-      console.error('Poll error:', error);
+      console.error("Poll error:", error);
     }
   }
 
   private async sendOffer(offer: RTCSessionDescriptionInit): Promise<void> {
-    await fetch(`${this.signalingUrl}/session/${this.roomId}/offer`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+    await fetch(`${this.signalingUrl}/api/session/${this.roomId}/offer`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         roomId: this.roomId,
         playerId: this.playerId,
@@ -326,9 +346,9 @@ export class PlayerWebRTCManager {
   }
 
   private async sendCandidate(candidate: RTCIceCandidateInit): Promise<void> {
-    await fetch(`${this.signalingUrl}/session/${this.roomId}/candidate`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+    await fetch(`${this.signalingUrl}/api/session/${this.roomId}/candidate`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         roomId: this.roomId,
         playerId: this.playerId,
@@ -340,44 +360,49 @@ export class PlayerWebRTCManager {
   private async checkForAnswer(): Promise<void> {
     try {
       const response = await fetch(
-        `${this.signalingUrl}/session/${this.roomId}/answer?playerId=${this.playerId}`
+        `${this.signalingUrl}/api/session/${this.roomId}/answer?playerId=${this.playerId}`,
       );
       const data = await response.json();
 
-      if (data.answer && this.connection?.signalingState === 'have-local-offer') {
+      if (
+        data.answer &&
+        this.connection?.signalingState === "have-local-offer"
+      ) {
         const answer = new RTCSessionDescription(data.answer);
         await this.connection.setRemoteDescription(answer);
       }
     } catch (error) {
-      console.error('Error checking for answer:', error);
+      console.error("Error checking for answer:", error);
     }
   }
 
   private async checkForCandidates(): Promise<void> {
     try {
       const response = await fetch(
-        `${this.signalingUrl}/session/${this.roomId}/candidate?playerId=${this.playerId}&afterIndex=${this.processedCandidates}`
+        `${this.signalingUrl}/api/session/${this.roomId}/candidate?playerId=${this.playerId}&afterIndex=${this.processedCandidates}`,
       );
       const data = await response.json();
 
       if (data.candidates) {
         for (const candidate of data.candidates) {
           try {
-            await this.connection?.addIceCandidate(new RTCIceCandidate(candidate));
+            await this.connection?.addIceCandidate(
+              new RTCIceCandidate(candidate),
+            );
             this.processedCandidates++;
           } catch (error) {
-            console.error('Error adding ICE candidate:', error);
+            console.error("Error adding ICE candidate:", error);
           }
         }
       }
     } catch (error) {
-      console.error('Error checking for candidates:', error);
+      console.error("Error checking for candidates:", error);
     }
   }
 
   private setupDataChannel(channel: RTCDataChannel): void {
     channel.onopen = () => {
-      console.log('Player data channel open');
+      console.log("Player data channel open");
       this.onConnected?.();
     };
 
@@ -386,18 +411,18 @@ export class PlayerWebRTCManager {
         const data = JSON.parse(event.data);
         this.onMessage?.(data);
       } catch (error) {
-        console.error('Failed to parse message:', error);
+        console.error("Failed to parse message:", error);
       }
     };
 
     channel.onclose = () => {
-      console.log('Player data channel closed');
+      console.log("Player data channel closed");
       this.onDisconnected?.();
     };
   }
 
   send(data: unknown): void {
-    if (this.dataChannel && this.dataChannel.readyState === 'open') {
+    if (this.dataChannel && this.dataChannel.readyState === "open") {
       this.dataChannel.send(JSON.stringify(data));
     }
   }

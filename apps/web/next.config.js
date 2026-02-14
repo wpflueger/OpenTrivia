@@ -1,18 +1,24 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
-  transpilePackages: ['@opentriiva/protocol', '@opentriiva/pack-schema'],
+  transpilePackages: ["@opentriiva/protocol", "@opentriiva/pack-schema"],
   typescript: {
     ignoreBuildErrors: true,
   },
   webpack: (config) => {
     config.resolve.alias = {
       ...config.resolve.alias,
-      '@/stores': require('path').resolve(__dirname, 'src/stores'),
-      '@/lib': require('path').resolve(__dirname, 'src/lib'),
-      '@/components': require('path').resolve(__dirname, 'src/components'),
-      '@opentriiva/protocol': require('path').resolve(__dirname, 'packages/protocol/src'),
-      '@opentriiva/pack-schema': require('path').resolve(__dirname, 'packages/pack-schema/src'),
+      "@/stores": require("path").resolve(__dirname, "src/stores"),
+      "@/lib": require("path").resolve(__dirname, "src/lib"),
+      "@/components": require("path").resolve(__dirname, "src/components"),
+      "@opentriiva/protocol": require("path").resolve(
+        __dirname,
+        "packages/protocol/src",
+      ),
+      "@opentriiva/pack-schema": require("path").resolve(
+        __dirname,
+        "packages/pack-schema/src",
+      ),
     };
     return config;
   },

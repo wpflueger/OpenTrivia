@@ -1,12 +1,12 @@
-import { NextRequest, NextResponse } from 'next/server';
-import fs from 'fs';
-import path from 'path';
+import { NextRequest, NextResponse } from "next/server";
+import fs from "fs";
+import path from "path";
 
-const QUIZZES_PATH = path.join(process.cwd(), '..', '..', 'quizzes');
+const QUIZZES_PATH = path.join(process.cwd(), "..", "..", "quizzes");
 
 interface Question {
   id: string;
-  type: 'mcq' | 'boolean';
+  type: "mcq" | "boolean";
   prompt: string;
   choices: { id: string; text: string }[];
   answer: { choiceId: string };
@@ -24,17 +24,17 @@ interface PackManifest {
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { packId: string } }
+  { params }: { params: { packId: string } },
 ) {
   try {
     const packId = params.packId;
-    const packPath = path.join(QUIZZES_PATH, packId, 'pack.json');
+    const packPath = path.join(QUIZZES_PATH, packId, "pack.json");
 
     if (!fs.existsSync(packPath)) {
-      return NextResponse.json({ error: 'Pack not found' }, { status: 404 });
+      return NextResponse.json({ error: "Pack not found" }, { status: 404 });
     }
 
-    const manifestContent = fs.readFileSync(packPath, 'utf-8');
+    const manifestContent = fs.readFileSync(packPath, "utf-8");
     const manifest: PackManifest = JSON.parse(manifestContent);
 
     const questions: Question[] = [];
@@ -42,11 +42,11 @@ export async function GET(
     for (const round of manifest.rounds) {
       for (const questionRef of round.questions) {
         const questionPath = path.join(QUIZZES_PATH, packId, questionRef.file);
-        
+
         if (fs.existsSync(questionPath)) {
-          const questionContent = fs.readFileSync(questionPath, 'utf-8');
+          const questionContent = fs.readFileSync(questionPath, "utf-8");
           const parsed = JSON.parse(questionContent);
-          
+
           if (Array.isArray(parsed)) {
             questions.push(...parsed);
           } else {
@@ -70,7 +70,7 @@ export async function GET(
       })),
     });
   } catch (error) {
-    console.error('Local pack load error:', error);
-    return NextResponse.json({ error: 'Failed to load pack' }, { status: 500 });
+    console.error("Local pack load error:", error);
+    return NextResponse.json({ error: "Failed to load pack" }, { status: 500 });
   }
 }

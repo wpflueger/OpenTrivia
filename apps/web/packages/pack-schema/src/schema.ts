@@ -30,12 +30,12 @@ export interface AssetManifest {
 
 export interface AssetFile {
   path: string;
-  type: 'image' | 'audio';
+  type: "image" | "audio";
   mimeType: string;
   size?: number;
 }
 
-export type QuestionType = 'mcq' | 'boolean';
+export type QuestionType = "mcq" | "boolean";
 
 export interface Question {
   id: string;

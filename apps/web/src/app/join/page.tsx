@@ -1,18 +1,18 @@
-'use client';
+"use client";
 
-import { useState, useEffect, Suspense } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useState, useEffect, Suspense } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 
 function JoinContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const [roomCode, setRoomCode] = useState('');
-  const [nickname, setNickname] = useState('');
+  const [roomCode, setRoomCode] = useState("");
+  const [nickname, setNickname] = useState("");
   const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState('');
+  const [error, setError] = useState("");
 
   useEffect(() => {
-    const roomFromUrl = searchParams.get('room');
+    const roomFromUrl = searchParams.get("room");
     if (roomFromUrl) {
       setRoomCode(roomFromUrl.toUpperCase());
     }
@@ -20,19 +20,21 @@ function JoinContent() {
 
   const handleJoin = () => {
     if (!roomCode || !nickname) {
-      setError('Please enter room code and nickname');
+      setError("Please enter room code and nickname");
       return;
     }
 
     setIsLoading(true);
-    setError('');
+    setError("");
 
     const playerId = crypto.randomUUID();
-    sessionStorage.setItem('playerId', playerId);
-    sessionStorage.setItem('nickname', nickname);
-    sessionStorage.setItem('roomCode', roomCode);
+    sessionStorage.setItem("playerId", playerId);
+    sessionStorage.setItem("nickname", nickname);
+    sessionStorage.setItem("roomCode", roomCode);
 
-    router.push(`/player/${roomCode}?playerId=${playerId}&nickname=${encodeURIComponent(nickname)}`);
+    router.push(
+      `/player/${roomCode}?playerId=${playerId}&nickname=${encodeURIComponent(nickname)}`,
+    );
   };
 
   return (
@@ -42,7 +44,10 @@ function JoinContent() {
 
         <div className="space-y-6">
           <div>
-            <label htmlFor="roomCode" className="block text-sm font-medium text-gray-700 mb-2">
+            <label
+              htmlFor="roomCode"
+              className="block text-sm font-medium text-gray-700 mb-2"
+            >
               Room Code
             </label>
             <input
@@ -57,7 +62,10 @@ function JoinContent() {
           </div>
 
           <div>
-            <label htmlFor="nickname" className="block text-sm font-medium text-gray-700 mb-2">
+            <label
+              htmlFor="nickname"
+              className="block text-sm font-medium text-gray-700 mb-2"
+            >
               Your Nickname
             </label>
             <input
@@ -82,7 +90,7 @@ function JoinContent() {
             disabled={isLoading || !roomCode || !nickname}
             className="w-full py-4 bg-primary-600 text-white text-lg font-semibold rounded-xl shadow-lg hover:bg-primary-700 disabled:opacity-50 transition-colors"
           >
-            {isLoading ? 'Joining...' : 'Join Game'}
+            {isLoading ? "Joining..." : "Join Game"}
           </button>
         </div>
       </div>

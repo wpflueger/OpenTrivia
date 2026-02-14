@@ -1,9 +1,10 @@
-import type { Metadata } from 'next';
-import './globals.css';
+import type { Metadata } from "next";
+import "./globals.css";
 
 export const metadata: Metadata = {
-  title: 'OpenTrivia - P2P Trivia Game',
-  description: 'Open alternative to Kahoot - Play trivia games with friends via WebRTC',
+  title: "OpenTrivia - P2P Trivia Game",
+  description:
+    "Open alternative to Kahoot - Play trivia games with friends via WebRTC",
 };
 
 export default function RootLayout({

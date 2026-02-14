@@ -1,16 +1,16 @@
 export type MessageType =
-  | 'room.join'
-  | 'room.joined'
-  | 'room.leave'
-  | 'lobby.update'
-  | 'game.start'
-  | 'game.end'
-  | 'question.show'
-  | 'question.lock'
-  | 'question.reveal'
-  | 'answer.submit'
-  | 'answer.ack'
-  | 'leaderboard.update';
+  | "room.join"
+  | "room.joined"
+  | "room.leave"
+  | "lobby.update"
+  | "game.start"
+  | "game.end"
+  | "question.show"
+  | "question.lock"
+  | "question.reveal"
+  | "answer.submit"
+  | "answer.ack"
+  | "leaderboard.update";
 
 export interface Message<T = unknown> {
   v: number;
@@ -46,7 +46,7 @@ export interface LobbyState {
   hostId: string;
   players: Player[];
   settings: GameSettings;
-  phase: 'lobby' | 'locked';
+  phase: "lobby" | "locked";
 }
 
 export interface GameSettings {
@@ -96,7 +96,7 @@ export interface AnswerSubmitPayload {
 }
 
 export interface AnswerAckPayload {
-  status: 'accepted' | 'late' | 'invalid';
+  status: "accepted" | "late" | "invalid";
   selectedChoiceIds: string[];
 }
 
@@ -131,31 +131,31 @@ export interface GameEndPayload {
   totalQuestions: number;
 }
 
-export type PayloadForMessageType<T extends MessageType> = T extends 'room.join'
+export type PayloadForMessageType<T extends MessageType> = T extends "room.join"
   ? RoomJoinPayload
-  : T extends 'room.joined'
-  ? RoomJoinedPayload
-  : T extends 'lobby.update'
-  ? LobbyState
-  : T extends 'game.start'
-  ? GameStartPayload
-  : T extends 'question.show'
-  ? QuestionShowPayload
-  : T extends 'answer.submit'
-  ? AnswerSubmitPayload
-  : T extends 'answer.ack'
-  ? AnswerAckPayload
-  : T extends 'question.reveal'
-  ? QuestionRevealPayload
-  : T extends 'leaderboard.update'
-  ? LeaderboardUpdatePayload
-  : T extends 'game.end'
-  ? GameEndPayload
-  : unknown;
+  : T extends "room.joined"
+    ? RoomJoinedPayload
+    : T extends "lobby.update"
+      ? LobbyState
+      : T extends "game.start"
+        ? GameStartPayload
+        : T extends "question.show"
+          ? QuestionShowPayload
+          : T extends "answer.submit"
+            ? AnswerSubmitPayload
+            : T extends "answer.ack"
+              ? AnswerAckPayload
+              : T extends "question.reveal"
+                ? QuestionRevealPayload
+                : T extends "leaderboard.update"
+                  ? LeaderboardUpdatePayload
+                  : T extends "game.end"
+                    ? GameEndPayload
+                    : unknown;
 
 export function createMessage<T extends MessageType>(
   type: T,
-  payload: PayloadForMessageType<T>
+  payload: PayloadForMessageType<T>,
 ): Message<PayloadForMessageType<T>> {
   return {
     v: 1,
@@ -166,4 +166,4 @@ export function createMessage<T extends MessageType>(
   };
 }
 
-export * from './validators.js';
+export * from "./validators.js";

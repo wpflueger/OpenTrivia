@@ -1,15 +1,15 @@
-import { create } from 'zustand';
-import type { Question } from '@opentriiva/pack-schema';
+import { create } from "zustand";
+import type { Question } from "@opentriiva/pack-schema";
 
 export type GamePhase =
-  | 'idle'
-  | 'lobby'
-  | 'countdown'
-  | 'question'
-  | 'reveal'
-  | 'intermission'
-  | 'leaderboard'
-  | 'ended';
+  | "idle"
+  | "lobby"
+  | "countdown"
+  | "question"
+  | "reveal"
+  | "intermission"
+  | "leaderboard"
+  | "ended";
 
 export interface Player {
   id: string;
@@ -53,16 +53,21 @@ export interface GameActions {
   showQuestion: () => void;
   lockQuestion: () => void;
   revealAnswer: () => void;
-  submitAnswer: (playerId: string, questionId: string, choiceIds: string[], timeMs: number) => void;
+  submitAnswer: (
+    playerId: string,
+    questionId: string,
+    choiceIds: string[],
+    timeMs: number,
+  ) => void;
   nextQuestion: () => void;
   endGame: () => void;
   reset: () => void;
 }
 
 const initialState: GameState = {
-  phase: 'idle',
-  roomId: '',
-  hostId: '',
+  phase: "idle",
+  roomId: "",
+  hostId: "",
   players: [],
   settings: {
     questionTimeLimit: 20000,
@@ -99,14 +104,14 @@ export const useGameStore = create<GameState & GameActions>((set, get) => ({
   setPlayerReady: (playerId, isReady) =>
     set((state) => ({
       players: state.players.map((p) =>
-        p.id === playerId ? { ...p, isReady } : p
+        p.id === playerId ? { ...p, isReady } : p,
       ),
     })),
 
   setPlayerConnected: (playerId, isConnected) =>
     set((state) => ({
       players: state.players.map((p) =>
-        p.id === playerId ? { ...p, isConnected } : p
+        p.id === playerId ? { ...p, isConnected } : p,
       ),
     })),
 
@@ -119,7 +124,7 @@ export const useGameStore = create<GameState & GameActions>((set, get) => ({
       : state.questions;
 
     set({
-      phase: 'countdown',
+      phase: "countdown",
       questions,
       currentQuestionIndex: 0,
       scores: new Map(state.players.map((p) => [p.id, 0])),
@@ -128,7 +133,7 @@ export const useGameStore = create<GameState & GameActions>((set, get) => ({
 
   showQuestion: () => {
     set({
-      phase: 'question',
+      phase: "question",
       questionStartTime: Date.now(),
       answers: new Map(),
       isLocked: false,
@@ -138,7 +143,7 @@ export const useGameStore = create<GameState & GameActions>((set, get) => ({
   lockQuestion: () => set({ isLocked: true }),
 
   revealAnswer: () => {
-    set({ phase: 'reveal', isLocked: true });
+    set({ phase: "reveal", isLocked: true });
   },
 
   submitAnswer: (playerId, questionId, choiceIds, timeMs) => {
@@ -153,7 +158,7 @@ export const useGameStore = create<GameState & GameActions>((set, get) => ({
     const isCorrect = choiceIds.includes(question.answer.choiceId);
     const timeBonus = Math.max(
       0,
-      Math.floor((state.settings.questionTimeLimit - timeMs) / 1000) * 100
+      Math.floor((state.settings.questionTimeLimit - timeMs) / 1000) * 100,
     );
     const scoreDelta = isCorrect ? 1000 + timeBonus : 0;
 
@@ -171,16 +176,16 @@ export const useGameStore = create<GameState & GameActions>((set, get) => ({
     const nextIndex = state.currentQuestionIndex + 1;
 
     if (nextIndex >= state.questions.length) {
-      set({ phase: 'ended' });
+      set({ phase: "ended" });
     } else {
       set({
-        phase: 'intermission',
+        phase: "intermission",
         currentQuestionIndex: nextIndex,
       });
     }
   },
 
-  endGame: () => set({ phase: 'ended' }),
+  endGame: () => set({ phase: "ended" }),
 
   reset: () => set(initialState),
 }));

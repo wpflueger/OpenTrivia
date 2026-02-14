@@ -1,5 +1,10 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { PackLoader, parseGitUrl, getRawContentUrl, PackLoadError } from '@opentriiva/pack-schema';
+import { NextRequest, NextResponse } from "next/server";
+import {
+  PackLoader,
+  parseGitUrl,
+  getRawContentUrl,
+  PackLoadError,
+} from "@opentriiva/pack-schema";
 
 export async function POST(request: NextRequest) {
   try {
@@ -7,11 +12,16 @@ export async function POST(request: NextRequest) {
     const { url } = body;
 
     if (!url) {
-      return NextResponse.json({ error: 'URL is required' }, { status: 400 });
+      return NextResponse.json({ error: "URL is required" }, { status: 400 });
     }
 
     const parsed = parseGitUrl(url);
-    const rawUrl = getRawContentUrl(parsed.owner, parsed.repo, parsed.ref || 'main', '');
+    const rawUrl = getRawContentUrl(
+      parsed.owner,
+      parsed.repo,
+      parsed.ref || "main",
+      "",
+    );
 
     const loader = new PackLoader({ baseUrl: rawUrl });
     const pack = await loader.load();
@@ -34,7 +44,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: error.message }, { status: 400 });
     }
 
-    console.error('Pack load error:', error);
-    return NextResponse.json({ error: 'Failed to load pack' }, { status: 500 });
+    console.error("Pack load error:", error);
+    return NextResponse.json({ error: "Failed to load pack" }, { status: 500 });
   }
 }

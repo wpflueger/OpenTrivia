@@ -24,8 +24,14 @@
       "@opentriiva/protocol": ["./packages/protocol/src/index.ts"],
       "@opentriiva/pack-schema": ["./packages/pack-schema/src/index.ts"]
     },
-    "baseUrl": ".",
+    "baseUrl": "."
   },
-  "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx", ".next/types/**/*.ts", "packages/**/*"],
+  "include": [
+    "next-env.d.ts",
+    "**/*.ts",
+    "**/*.tsx",
+    ".next/types/**/*.ts",
+    "packages/**/*"
+  ],
   "exclude": ["node_modules"]
 }
