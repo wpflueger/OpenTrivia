@@ -1,0 +1,60 @@
+[
+  {
+    "id": "q1",
+    "type": "mcq",
+    "prompt": "What is the largest country by land area?",
+    "choices": [
+      { "id": "a", "text": "Canada" },
+      { "id": "b", "text": "United States" },
+      { "id": "c", "text": "China" },
+      { "id": "d", "text": "Russia" }
+    ],
+    "answer": { "choiceId": "d" }
+  },
+  {
+    "id": "q2",
+    "type": "mcq",
+    "prompt": "What is the longest river in the world?",
+    "choices": [
+      { "id": "a", "text": "Amazon" },
+      { "id": "b", "text": "Nile" },
+      { "id": "c", "text": "Yangtze" },
+      { "id": "d", "text": "Mississippi" }
+    ],
+    "answer": { "choiceId": "b" }
+  },
+  {
+    "id": "q3",
+    "type": "boolean",
+    "prompt": "Australia is both a country and a continent.",
+    "choices": [
+      { "id": "true", "text": "True" },
+      { "id": "false", "text": "False" }
+    ],
+    "answer": { "choiceId": "true" }
+  },
+  {
+    "id": "q4",
+    "type": "mcq",
+    "prompt": "What is the smallest country in the world?",
+    "choices": [
+      { "id": "a", "text": "Monaco" },
+      { "id": "b", "text": "Vatican City" },
+      { "id": "c", "text": "San Marino" },
+      { "id": "d", "text": "Liechtenstein" }
+    ],
+    "answer": { "choiceId": "b" }
+  },
+  {
+    "id": "q5",
+    "type": "mcq",
+    "prompt": "Which continent has the most countries?",
+    "choices": [
+      { "id": "a", "text": "Asia" },
+      { "id": "b", "text": "Europe" },
+      { "id": "c", "text": "Africa" },
+      { "id": "d", "text": "South America" }
+    ],
+    "answer": { "choiceId": "c" }
+  }
+]

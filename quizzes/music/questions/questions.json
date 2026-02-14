@@ -1,0 +1,60 @@
+[
+  {
+    "id": "q1",
+    "type": "mcq",
+    "prompt": "Who is known as the 'King of Pop'?",
+    "choices": [
+      { "id": "a", "text": "Elvis Presley" },
+      { "id": "b", "text": "Michael Jackson" },
+      { "id": "c", "text": "Prince" },
+      { "id": "d", "text": "Freddie Mercury" }
+    ],
+    "answer": { "choiceId": "b" }
+  },
+  {
+    "id": "q2",
+    "type": "mcq",
+    "prompt": "Which band performed 'Bohemian Rhapsody'?",
+    "choices": [
+      { "id": "a", "text": "The Beatles" },
+      { "id": "b", "text": "Led Zeppelin" },
+      { "id": "c", "text": "Queen" },
+      { "id": "d", "text": "Pink Floyd" }
+    ],
+    "answer": { "choiceId": "c" }
+  },
+  {
+    "id": "q3",
+    "type": "boolean",
+    "prompt": "The Beatles were from Liverpool, England.",
+    "choices": [
+      { "id": "true", "text": "True" },
+      { "id": "false", "text": "False" }
+    ],
+    "answer": { "choiceId": "true" }
+  },
+  {
+    "id": "q4",
+    "type": "mcq",
+    "prompt": "What instrument has 88 keys?",
+    "choices": [
+      { "id": "a", "text": "Guitar" },
+      { "id": "b", "text": "Violin" },
+      { "id": "c", "text": "Piano" },
+      { "id": "d", "text": "Drums" }
+    ],
+    "answer": { "choiceId": "c" }
+  },
+  {
+    "id": "q5",
+    "type": "mcq",
+    "prompt": "Which country is known as the 'Land of the Rising Sun'?",
+    "choices": [
+      { "id": "a", "text": "China" },
+      { "id": "b", "text": "Japan" },
+      { "id": "c", "text": "Korea" },
+      { "id": "d", "text": "Thailand" }
+    ],
+    "answer": { "choiceId": "b" }
+  }
+]
