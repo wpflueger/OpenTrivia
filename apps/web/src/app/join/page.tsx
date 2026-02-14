@@ -1,14 +1,22 @@
 'use client';
 
-import { useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useState, useEffect, Suspense } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 
-export default function JoinPage() {
+function JoinContent() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [roomCode, setRoomCode] = useState('');
   const [nickname, setNickname] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
+
+  useEffect(() => {
+    const roomFromUrl = searchParams.get('room');
+    if (roomFromUrl) {
+      setRoomCode(roomFromUrl.toUpperCase());
+    }
+  }, [searchParams]);
 
   const handleJoin = () => {
     if (!roomCode || !nickname) {
@@ -79,5 +87,22 @@ export default function JoinPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+function LoadingState() {
+  return (
+    <div className="flex flex-col items-center justify-center min-h-[60vh]">
+      <div className="animate-spin rounded-full h-16 w-16 border-4 border-primary-600 border-t-transparent"></div>
+      <p className="mt-4 text-xl text-gray-600">Loading...</p>
+    </div>
+  );
+}
+
+export default function JoinPage() {
+  return (
+    <Suspense fallback={<LoadingState />}>
+      <JoinContent />
+    </Suspense>
   );
 }
