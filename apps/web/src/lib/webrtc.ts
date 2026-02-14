@@ -11,90 +11,187 @@ export interface SignalingMessage {
   payload: RTCSessionDescriptionInit | RTCIceCandidateInit;
 }
 
-export class WebRTCManager {
-  private localConnection: RTCPeerConnection | null = null;
+interface PlayerInfo {
+  playerId: string;
+  nickname?: string;
+}
+
+export class HostWebRTCManager {
+  private connections: Map<string, RTCPeerConnection> = new Map();
   private dataChannels: Map<string, RTCDataChannel> = new Map();
   private signalingUrl: string;
   private roomId: string;
-  private hostToken?: string;
-  private onMessage?: (playerId: string, data: unknown) => void;
-  private onPlayerJoin?: (playerId: string) => void;
+  private hostToken: string;
+  private pollInterval: ReturnType<typeof setInterval> | null = null;
+  private processedPlayers: Set<string> = new Set();
+  private onPlayerJoin?: (playerId: string, nickname?: string) => void;
   private onPlayerLeave?: (playerId: string) => void;
+  private onMessage?: (playerId: string, data: unknown) => void;
+  private processedCandidates: Map<string, number> = new Map();
 
   constructor(options: {
     signalingUrl: string;
     roomId: string;
-    hostToken?: string;
-    onMessage?: (playerId: string, data: unknown) => void;
-    onPlayerJoin?: (playerId: string) => void;
+    hostToken: string;
+    onPlayerJoin?: (playerId: string, nickname?: string) => void;
     onPlayerLeave?: (playerId: string) => void;
+    onMessage?: (playerId: string, data: unknown) => void;
   }) {
     this.signalingUrl = options.signalingUrl;
     this.roomId = options.roomId;
     this.hostToken = options.hostToken;
-    this.onMessage = options.onMessage;
     this.onPlayerJoin = options.onPlayerJoin;
     this.onPlayerLeave = options.onPlayerLeave;
+    this.onMessage = options.onMessage;
   }
 
-  async connect(): Promise<void> {
-    this.localConnection = new RTCPeerConnection({
+  async start(): Promise<void> {
+    this.pollInterval = setInterval(() => this.poll(), 1000);
+  }
+
+  stop(): void {
+    if (this.pollInterval) {
+      clearInterval(this.pollInterval);
+      this.pollInterval = null;
+    }
+    this.disconnect();
+  }
+
+  private async poll(): Promise<void> {
+    try {
+      await this.checkForNewPlayers();
+      await this.checkForCandidates();
+    } catch (error) {
+      console.error('Poll error:', error);
+    }
+  }
+
+  private async checkForNewPlayers(): Promise<void> {
+    try {
+      const response = await fetch(
+        `${this.signalingUrl}/session/${this.roomId}/offer?hostToken=${this.hostToken}`
+      );
+      const data = await response.json();
+
+      if (data.players) {
+        for (const player of data.players) {
+          if (player.hasOffer && !this.processedPlayers.has(player.playerId)) {
+            await this.handleNewPlayer(player.playerId);
+          }
+        }
+      }
+    } catch (error) {
+      console.error('Error checking for players:', error);
+    }
+  }
+
+  private async handleNewPlayer(playerId: string): Promise<void> {
+    this.processedPlayers.add(playerId);
+
+    const connection = new RTCPeerConnection({
       iceServers: [{ urls: 'stun:stun.l.google.com:19302' }],
     });
 
-    this.localConnection.onicecandidate = (event) => {
+    connection.onicecandidate = (event) => {
       if (event.candidate) {
-        this.sendCandidate(event.candidate);
+        this.sendCandidate(playerId, event.candidate);
       }
     };
 
-    this.localConnection.ondatachannel = (event) => {
-      this.setupDataChannel(event.channel, 'host');
+    connection.ondatachannel = (event) => {
+      this.setupDataChannel(playerId, event.channel);
     };
 
-    await this.fetchOffer();
-  }
+    connection.onconnectionstatechange = () => {
+      if (connection.connectionState === 'disconnected' || connection.connectionState === 'failed') {
+        this.handlePlayerLeave(playerId);
+      }
+    };
 
-  private async fetchOffer(): Promise<void> {
+    this.connections.set(playerId, connection);
+
     try {
-      const response = await fetch(`${this.signalingUrl}/session/${this.roomId}/offer`);
+      const response = await fetch(
+        `${this.signalingUrl}/session/${this.roomId}/offer?hostToken=${this.hostToken}&playerId=${playerId}`
+      );
       const data = await response.json();
 
       if (data.offer) {
         const offer = new RTCSessionDescription(data.offer);
-        await this.localConnection?.setRemoteDescription(offer);
+        await connection.setRemoteDescription(offer);
 
-        const answer = await this.localConnection?.createAnswer();
-        if (answer) {
-          await this.localConnection?.setLocalDescription(answer);
-          await this.sendAnswer(answer);
-        }
+        const answer = await connection.createAnswer();
+        await connection.setLocalDescription(answer);
+
+        await this.sendAnswer(playerId, answer);
       }
     } catch (error) {
-      console.error('Failed to fetch offer:', error);
+      console.error('Error handling new player:', error);
     }
+
+    this.onPlayerJoin?.(playerId);
   }
 
-  private async sendAnswer(answer: RTCSessionDescriptionInit): Promise<void> {
+  private async sendAnswer(playerId: string, answer: RTCSessionDescriptionInit): Promise<void> {
     await fetch(`${this.signalingUrl}/session/${this.roomId}/answer`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ roomId: this.roomId, answer }),
+      body: JSON.stringify({
+        roomId: this.roomId,
+        playerId,
+        answer,
+        hostToken: this.hostToken,
+      }),
     });
   }
 
-  private async sendCandidate(candidate: RTCIceCandidateInit): Promise<void> {
+  private async sendCandidate(playerId: string, candidate: RTCIceCandidateInit): Promise<void> {
     await fetch(`${this.signalingUrl}/session/${this.roomId}/candidate`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ roomId: this.roomId, candidate }),
+      body: JSON.stringify({
+        roomId: this.roomId,
+        playerId,
+        candidate,
+        hostToken: this.hostToken,
+      }),
     });
   }
 
-  private setupDataChannel(channel: RTCDataChannel, playerId: string): void {
+  private async checkForCandidates(): Promise<void> {
+    try {
+      const response = await fetch(
+        `${this.signalingUrl}/session/${this.roomId}/candidate?hostToken=${this.hostToken}`
+      );
+      const data = await response.json();
+
+      if (data.candidatesByPlayer) {
+        for (const [playerId, candidates] of Object.entries(data.candidatesByPlayer)) {
+          const connection = this.connections.get(playerId);
+          if (!connection) continue;
+
+          const lastProcessed = this.processedCandidates.get(playerId) || 0;
+          const newCandidates = (candidates as RTCIceCandidateInit[]).slice(lastProcessed);
+
+          for (const candidate of newCandidates) {
+            try {
+              await connection.addIceCandidate(new RTCIceCandidate(candidate));
+              this.processedCandidates.set(playerId, lastProcessed + 1);
+            } catch (error) {
+              console.error('Error adding ICE candidate:', error);
+            }
+          }
+        }
+      }
+    } catch (error) {
+      console.error('Error checking for candidates:', error);
+    }
+  }
+
+  private setupDataChannel(playerId: string, channel: RTCDataChannel): void {
     channel.onopen = () => {
       console.log(`Data channel open for ${playerId}`);
-      this.onPlayerJoin?.(playerId);
+      this.dataChannels.set(playerId, channel);
     };
 
     channel.onmessage = (event) => {
@@ -108,11 +205,15 @@ export class WebRTCManager {
 
     channel.onclose = () => {
       console.log(`Data channel closed for ${playerId}`);
-      this.onPlayerLeave?.(playerId);
-      this.dataChannels.delete(playerId);
+      this.handlePlayerLeave(playerId);
     };
+  }
 
-    this.dataChannels.set(playerId, channel);
+  private handlePlayerLeave(playerId: string): void {
+    this.connections.get(playerId)?.close();
+    this.connections.delete(playerId);
+    this.dataChannels.delete(playerId);
+    this.onPlayerLeave?.(playerId);
   }
 
   send(playerId: string, data: unknown): void {
@@ -131,11 +232,18 @@ export class WebRTCManager {
     });
   }
 
+  getConnectedPlayers(): string[] {
+    return Array.from(this.dataChannels.entries())
+      .filter(([, channel]) => channel.readyState === 'open')
+      .map(([playerId]) => playerId);
+  }
+
   disconnect(): void {
-    this.dataChannels.forEach((channel) => channel.close());
+    this.stop();
+    this.connections.forEach((conn) => conn.close());
+    this.connections.clear();
     this.dataChannels.clear();
-    this.localConnection?.close();
-    this.localConnection = null;
+    this.processedPlayers.clear();
   }
 }
 
@@ -144,16 +252,27 @@ export class PlayerWebRTCManager {
   private dataChannel: RTCDataChannel | null = null;
   private signalingUrl: string;
   private roomId: string;
+  private playerId: string;
+  private pollInterval: ReturnType<typeof setInterval> | null = null;
+  private processedCandidates: number = 0;
   private onMessage?: (data: unknown) => void;
+  private onConnected?: () => void;
+  private onDisconnected?: () => void;
 
   constructor(options: {
     signalingUrl: string;
     roomId: string;
+    playerId: string;
     onMessage?: (data: unknown) => void;
+    onConnected?: () => void;
+    onDisconnected?: () => void;
   }) {
     this.signalingUrl = options.signalingUrl;
     this.roomId = options.roomId;
+    this.playerId = options.playerId;
     this.onMessage = options.onMessage;
+    this.onConnected = options.onConnected;
+    this.onDisconnected = options.onDisconnected;
   }
 
   async connect(): Promise<void> {
@@ -167,6 +286,13 @@ export class PlayerWebRTCManager {
       }
     };
 
+    this.connection.onconnectionstatechange = () => {
+      if (this.connection?.connectionState === 'disconnected' ||
+          this.connection?.connectionState === 'failed') {
+        this.onDisconnected?.();
+      }
+    };
+
     this.dataChannel = this.connection.createDataChannel('game');
     this.setupDataChannel(this.dataChannel);
 
@@ -175,14 +301,27 @@ export class PlayerWebRTCManager {
 
     await this.sendOffer(offer);
 
-    await this.waitForAnswer();
+    this.pollInterval = setInterval(() => this.poll(), 500);
+  }
+
+  private async poll(): Promise<void> {
+    try {
+      await this.checkForAnswer();
+      await this.checkForCandidates();
+    } catch (error) {
+      console.error('Poll error:', error);
+    }
   }
 
   private async sendOffer(offer: RTCSessionDescriptionInit): Promise<void> {
     await fetch(`${this.signalingUrl}/session/${this.roomId}/offer`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ roomId: this.roomId, offer }),
+      body: JSON.stringify({
+        roomId: this.roomId,
+        playerId: this.playerId,
+        offer,
+      }),
     });
   }
 
@@ -190,40 +329,56 @@ export class PlayerWebRTCManager {
     await fetch(`${this.signalingUrl}/session/${this.roomId}/candidate`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ roomId: this.roomId, candidate }),
+      body: JSON.stringify({
+        roomId: this.roomId,
+        playerId: this.playerId,
+        candidate,
+      }),
     });
   }
 
-  private async waitForAnswer(): Promise<void> {
-    const maxAttempts = 50;
-    let attempts = 0;
+  private async checkForAnswer(): Promise<void> {
+    try {
+      const response = await fetch(
+        `${this.signalingUrl}/session/${this.roomId}/answer?playerId=${this.playerId}`
+      );
+      const data = await response.json();
 
-    while (attempts < maxAttempts) {
-      try {
-        const response = await fetch(
-          `${this.signalingUrl}/session/${this.roomId}/answer`
-        );
-        const data = await response.json();
-
-        if (data.answer) {
-          const answer = new RTCSessionDescription(data.answer);
-          await this.connection?.setRemoteDescription(answer);
-          return;
-        }
-      } catch (error) {
-        console.error('Failed to get answer:', error);
+      if (data.answer && this.connection?.signalingState === 'have-local-offer') {
+        const answer = new RTCSessionDescription(data.answer);
+        await this.connection.setRemoteDescription(answer);
       }
-
-      await new Promise((resolve) => setTimeout(resolve, 200));
-      attempts++;
+    } catch (error) {
+      console.error('Error checking for answer:', error);
     }
+  }
 
-    throw new Error('Failed to connect: timeout waiting for answer');
+  private async checkForCandidates(): Promise<void> {
+    try {
+      const response = await fetch(
+        `${this.signalingUrl}/session/${this.roomId}/candidate?playerId=${this.playerId}&afterIndex=${this.processedCandidates}`
+      );
+      const data = await response.json();
+
+      if (data.candidates) {
+        for (const candidate of data.candidates) {
+          try {
+            await this.connection?.addIceCandidate(new RTCIceCandidate(candidate));
+            this.processedCandidates++;
+          } catch (error) {
+            console.error('Error adding ICE candidate:', error);
+          }
+        }
+      }
+    } catch (error) {
+      console.error('Error checking for candidates:', error);
+    }
   }
 
   private setupDataChannel(channel: RTCDataChannel): void {
     channel.onopen = () => {
       console.log('Player data channel open');
+      this.onConnected?.();
     };
 
     channel.onmessage = (event) => {
@@ -237,6 +392,7 @@ export class PlayerWebRTCManager {
 
     channel.onclose = () => {
       console.log('Player data channel closed');
+      this.onDisconnected?.();
     };
   }
 
@@ -247,6 +403,10 @@ export class PlayerWebRTCManager {
   }
 
   disconnect(): void {
+    if (this.pollInterval) {
+      clearInterval(this.pollInterval);
+      this.pollInterval = null;
+    }
     this.dataChannel?.close();
     this.connection?.close();
     this.dataChannel = null;

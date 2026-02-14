@@ -1,15 +1,18 @@
 'use client';
 
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { useGameStore, type GamePhase } from '@/stores/gameStore';
+import { HostWebRTCManager } from '@/lib/webrtc';
 
 export default function HostGamePage() {
   const router = useRouter();
   const [countdown, setCountdown] = useState(3);
+  const webrtcRef = useRef<HostWebRTCManager | null>(null);
 
   const {
     phase,
+    roomId,
     players,
     questions,
     currentQuestionIndex,
@@ -22,9 +25,44 @@ export default function HostGamePage() {
     nextQuestion,
     endGame,
     reset,
+    submitAnswer,
   } = useGameStore();
 
   const currentQuestion = questions[currentQuestionIndex];
+
+  useEffect(() => {
+    const hostToken = sessionStorage.getItem('hostToken');
+    const roomIdParam = useGameStore.getState().roomId;
+    
+    if (hostToken && roomIdParam) {
+      const signalingUrl = typeof window !== 'undefined' 
+        ? window.location.origin 
+        : 'http://localhost:3000';
+
+      webrtcRef.current = new HostWebRTCManager({
+        signalingUrl,
+        roomId: roomIdParam,
+        hostToken,
+        onMessage: (playerId: string, data: unknown) => {
+          const msg = data as { type: string; choiceId?: string; timeMs?: number };
+          if (msg.type === 'answer' && currentQuestion) {
+            submitAnswer(
+              playerId,
+              currentQuestion.id,
+              [msg.choiceId || ''],
+              msg.timeMs || 0
+            );
+          }
+        },
+      });
+
+      webrtcRef.current.start();
+    }
+
+    return () => {
+      webrtcRef.current?.stop();
+    };
+  }, [submitAnswer, currentQuestion]);
 
   useEffect(() => {
     if (phase === 'countdown' && countdown > 0) {
@@ -32,8 +70,19 @@ export default function HostGamePage() {
       return () => clearTimeout(timer);
     } else if (phase === 'countdown' && countdown === 0) {
       showQuestion();
+      if (webrtcRef.current && currentQuestion) {
+        webrtcRef.current.broadcast({
+          type: 'question',
+          payload: {
+            id: currentQuestion.id,
+            prompt: currentQuestion.prompt,
+            choices: currentQuestion.choices,
+            durationMs: currentQuestion.type === 'boolean' ? 20000 : 30000,
+          },
+        });
+      }
     }
-  }, [phase, countdown, showQuestion]);
+  }, [phase, countdown, showQuestion, currentQuestion]);
 
   useEffect(() => {
     if (phase === 'question' && currentQuestion) {
@@ -53,11 +102,26 @@ export default function HostGamePage() {
 
   const handleReveal = () => {
     revealAnswer();
+    
+    if (webrtcRef.current) {
+      webrtcRef.current.broadcast({ type: 'reveal' });
+    }
+    
     setTimeout(() => {
       if (currentQuestionIndex < questions.length - 1) {
         setPhase('leaderboard');
+        if (webrtcRef.current) {
+          const leaderboard = getSortedLeaderboard();
+          webrtcRef.current.broadcast({ 
+            type: 'leaderboard', 
+            payload: leaderboard 
+          });
+        }
       } else {
         endGame();
+        if (webrtcRef.current) {
+          webrtcRef.current.broadcast({ type: 'ended' });
+        }
       }
     }, 3000);
   };
@@ -69,6 +133,9 @@ export default function HostGamePage() {
       setPhase('countdown');
     } else {
       endGame();
+      if (webrtcRef.current) {
+        webrtcRef.current.broadcast({ type: 'ended' });
+      }
     }
   };
 

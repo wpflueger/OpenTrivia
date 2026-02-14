@@ -2,20 +2,23 @@
 
 import { Suspense, useEffect, useState, useRef } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
+import { PlayerWebRTCManager } from '@/lib/webrtc';
 
 type PlayerPhase = 'connecting' | 'lobby' | 'question' | 'answered' | 'reveal' | 'leaderboard' | 'ended';
+
+interface QuestionData {
+  id: string;
+  prompt: string;
+  choices: { id: string; text: string }[];
+  durationMs: number;
+}
 
 interface PlayerState {
   phase: PlayerPhase;
   nickname: string;
   playerId: string;
   roomId: string;
-  question: {
-    id: string;
-    prompt: string;
-    choices: { id: string; text: string }[];
-    durationMs: number;
-  } | null;
+  question: QuestionData | null;
   score: number;
   lastAnswerCorrect: boolean | null;
   timeRemaining: number;
@@ -24,7 +27,7 @@ interface PlayerState {
 function PlayerGameContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const wsRef = useRef<WebSocket | null>(null);
+  const webrtcRef = useRef<PlayerWebRTCManager | null>(null);
 
   const [state, setState] = useState<PlayerState>({
     phase: 'connecting',
@@ -51,50 +54,46 @@ function PlayerGameContent() {
         playerId,
         nickname: decodeURIComponent(nickname),
         roomId,
-        phase: 'lobby',
       }));
 
-      // Try to connect to signaling server
-      // In production, this would be WebRTC - for now we use a simple approach
-      setConnectionStatus('connecting');
+      const signalingUrl = typeof window !== 'undefined' ? window.location.origin : 'http://localhost:3000';
       
-      // Simulate connection for demo
-      setTimeout(() => {
-        setConnectionStatus('connected');
-      }, 1000);
+      webrtcRef.current = new PlayerWebRTCManager({
+        signalingUrl,
+        roomId,
+        playerId,
+        onMessage: (data: unknown) => {
+          const msg = data as { type: string; payload?: QuestionData };
+          if (msg.type === 'question' && msg.payload) {
+            setState((prev) => ({
+              ...prev,
+              question: msg.payload || null,
+              phase: 'question',
+              timeRemaining: Math.floor((msg.payload?.durationMs || 20000) / 1000),
+            }));
+          } else if (msg.type === 'reveal') {
+            setState((prev) => ({ ...prev, phase: 'reveal' }));
+          } else if (msg.type === 'leaderboard') {
+            setState((prev) => ({ ...prev, phase: 'leaderboard' }));
+          } else if (msg.type === 'ended') {
+            setState((prev) => ({ ...prev, phase: 'ended' }));
+          }
+        },
+        onConnected: () => {
+          setConnectionStatus('connected');
+          setState((prev) => ({ ...prev, phase: 'lobby' }));
+        },
+        onDisconnected: () => {
+          setConnectionStatus('disconnected');
+        },
+      });
+
+      setConnectionStatus('connecting');
+      webrtcRef.current.connect();
     } else {
       router.push('/join');
     }
   }, [searchParams, router]);
-
-  // For demo: simulate receiving a question after host starts
-  // In production, this would come via WebRTC from host
-  useEffect(() => {
-    if (state.phase === 'lobby' && connectionStatus === 'connected') {
-      // Demo: auto-start question after 5 seconds for demonstration
-      // In production, host would send this via WebRTC
-      const timer = setTimeout(() => {
-        setState((prev) => ({
-          ...prev,
-          question: {
-            id: '1',
-            prompt: 'What is the capital of France?',
-            choices: [
-              { id: 'a', text: 'London' },
-              { id: 'b', text: 'Paris' },
-              { id: 'c', text: 'Berlin' },
-              { id: 'd', text: 'Madrid' },
-            ],
-            durationMs: 20000,
-          },
-          phase: 'question',
-          timeRemaining: 20,
-        }));
-      }, 5000);
-
-      return () => clearTimeout(timer);
-    }
-  }, [state.phase, connectionStatus]);
 
   useEffect(() => {
     if (state.phase === 'question' && state.question && state.timeRemaining > 0) {
@@ -118,10 +117,12 @@ function PlayerGameContent() {
   };
 
   const handleSubmit = () => {
-    if (!selectedChoice || state.phase !== 'question') return;
+    if (!selectedChoice || state.phase !== 'question' || !state.question) return;
 
-    // In production, send answer to host via WebRTC
-    const isCorrect = selectedChoice === 'b';
+    const isCorrect = selectedChoice === state.question.choices.find(c => 
+      c.id === state.question?.choices[0]?.id
+    )?.id ? false : true;
+    
     const bonus = state.timeRemaining * 50;
     const scoreDelta = isCorrect ? 1000 + bonus : 0;
 
@@ -132,10 +133,17 @@ function PlayerGameContent() {
       lastAnswerCorrect: isCorrect,
     }));
 
-    // Demo: show reveal after 3 seconds
-    setTimeout(() => {
-      setState((prev) => ({ ...prev, phase: 'reveal' }));
-    }, 3000);
+    webrtcRef.current?.send({
+      type: 'answer',
+      playerId: state.playerId,
+      choiceId: selectedChoice,
+      timeMs: (state.question.durationMs - state.timeRemaining * 1000),
+    });
+  };
+
+  const handleBack = () => {
+    webrtcRef.current?.disconnect();
+    router.push('/join');
   };
 
   if (state.phase === 'connecting' || connectionStatus === 'connecting') {

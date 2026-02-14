@@ -33,22 +33,19 @@ export default function HostPage() {
   const setQuestions = useGameStore((state) => state.setQuestions);
   const setRoomId = useGameStore((state) => state.setRoomId);
 
-  const generateRoomId = () => {
-    const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
-    let result = '';
-    for (let i = 0; i < 6; i++) {
-      result += chars.charAt(Math.floor(Math.random() * chars.length));
-    }
-    return result;
-  };
-
   const handleCreateGame = async () => {
     setIsLoading(true);
     setError('');
 
     try {
-      const roomId = generateRoomId();
+      const response = await fetch('/api/session/create', { method: 'POST' });
+      if (!response.ok) {
+        throw new Error('Failed to create session');
+      }
+      const { roomId, hostToken } = await response.json();
+      
       setRoomId(roomId);
+      sessionStorage.setItem('hostToken', hostToken);
 
       if (selectedLocalPack) {
         const response = await fetch(`/api/packs/local/${selectedLocalPack}`);

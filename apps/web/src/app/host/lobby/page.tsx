@@ -1,10 +1,10 @@
 'use client';
 
-import { Suspense, useEffect, useState } from 'react';
+import { Suspense, useEffect, useState, useRef, useCallback } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { QRCodeSVG } from 'qrcode.react';
-import { useGameStore } from '@/stores/gameStore';
-import type { Player } from '@/stores/gameStore';
+import { useGameStore, type Player } from '@/stores/gameStore';
+import { HostWebRTCManager } from '@/lib/webrtc';
 
 function LobbyContent() {
   const router = useRouter();
@@ -12,6 +12,8 @@ function LobbyContent() {
   const roomId = searchParams.get('room');
 
   const [showQR, setShowQR] = useState(false);
+  const [hostToken, setHostToken] = useState<string | null>(null);
+  const webrtcRef = useRef<HostWebRTCManager | null>(null);
 
   const {
     roomId: storeRoomId,
@@ -19,23 +21,63 @@ function LobbyContent() {
     questions,
     setRoomId,
     addPlayer,
+    removePlayer,
     startGame,
   } = useGameStore();
 
   const displayRoomId = roomId || storeRoomId;
   
-  // QR code shows room code - players enter it manually
-  // This works across devices on same network
-  const qrValue = `OPENTRIVIA:${displayRoomId}`;
+  const qrValue = 'OPENTRIVIA:' + displayRoomId;
+
+  const handlePlayerJoin = useCallback((playerId: string, nickname?: string) => {
+    const player: Player = {
+      id: playerId,
+      nickname: nickname || 'Player ' + (players.length + 1),
+      isReady: false,
+      isConnected: true,
+      score: 0,
+    };
+    addPlayer(player);
+  }, [addPlayer, players.length]);
+
+  const handlePlayerLeave = useCallback((playerId: string) => {
+    removePlayer(playerId);
+  }, [removePlayer]);
+
+  const handleMessage = useCallback((playerId: string, data: unknown) => {
+    console.log('Received message from', playerId, data);
+  }, []);
 
   useEffect(() => {
     if (roomId) {
       setRoomId(roomId);
+      const token = sessionStorage.getItem('hostToken');
+      setHostToken(token);
     }
   }, [roomId, setRoomId]);
 
-  // Note: In production, players would connect via WebRTC
-  // Demo players removed - real players will join via /join page
+  useEffect(() => {
+    if (displayRoomId && hostToken) {
+      const signalingUrl = typeof window !== 'undefined' 
+        ? window.location.origin 
+        : 'http://localhost:3000';
+
+      webrtcRef.current = new HostWebRTCManager({
+        signalingUrl,
+        roomId: displayRoomId,
+        hostToken: hostToken,
+        onPlayerJoin: handlePlayerJoin,
+        onPlayerLeave: handlePlayerLeave,
+        onMessage: handleMessage,
+      });
+
+      webrtcRef.current.start();
+
+      return () => {
+        webrtcRef.current?.stop();
+      };
+    }
+  }, [displayRoomId, hostToken, handlePlayerJoin, handlePlayerLeave, handleMessage]);
 
   const handleStartGame = () => {
     startGame();

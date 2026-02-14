@@ -1,14 +1,20 @@
 import { NextRequest, NextResponse } from 'next/server';
 
+interface PlayerConnection {
+  playerId: string;
+  offer?: RTCSessionDescriptionInit;
+  answer?: RTCSessionDescriptionInit;
+  candidates: RTCIceCandidateInit[];
+  createdAt: number;
+}
+
 const sessions = new Map<
   string,
   {
     roomId: string;
     hostToken: string;
     createdAt: number;
-    offer?: string;
-    answer?: string;
-    candidates: string[];
+    players: Map<string, PlayerConnection>;
   }
 >();
 
@@ -39,7 +45,7 @@ export async function POST(request: NextRequest) {
       roomId,
       hostToken,
       createdAt: Date.now(),
-      candidates: [],
+      players: new Map(),
     });
 
     return NextResponse.json({ roomId, hostToken });
@@ -63,10 +69,16 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: 'Session not found' }, { status: 404 });
   }
 
+  const playerList = Array.from(session.players.values()).map(p => ({
+    playerId: p.playerId,
+    hasOffer: !!p.offer,
+    hasAnswer: !!p.answer,
+    candidateCount: p.candidates.length,
+  }));
+
   return NextResponse.json({
     roomId: session.roomId,
-    hasOffer: !!session.offer,
-    hasAnswer: !!session.answer,
-    candidateCount: session.candidates.length,
+    hostToken: session.hostToken,
+    players: playerList,
   });
 }
