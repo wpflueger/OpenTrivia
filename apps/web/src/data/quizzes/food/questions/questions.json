@@ -1,0 +1,60 @@
+[
+  {
+    "id": "q1",
+    "type": "mcq",
+    "prompt": "What is the main ingredient in guacamole?",
+    "choices": [
+      { "id": "a", "text": "Tomato" },
+      { "id": "b", "text": "Avocado" },
+      { "id": "c", "text": "Onion" },
+      { "id": "d", "text": "Pepper" }
+    ],
+    "answer": { "choiceId": "b" }
+  },
+  {
+    "id": "q2",
+    "type": "mcq",
+    "prompt": "Which country is known for inventing pizza?",
+    "choices": [
+      { "id": "a", "text": "France" },
+      { "id": "b", "text": "Greece" },
+      { "id": "c", "text": "Italy" },
+      { "id": "d", "text": "Spain" }
+    ],
+    "answer": { "choiceId": "c" }
+  },
+  {
+    "id": "q3",
+    "type": "boolean",
+    "prompt": "Sushi always contains raw fish.",
+    "choices": [
+      { "id": "true", "text": "True" },
+      { "id": "false", "text": "False" }
+    ],
+    "answer": { "choiceId": "false" }
+  },
+  {
+    "id": "q4",
+    "type": "mcq",
+    "prompt": "What type of pasta is shaped like small rice grains?",
+    "choices": [
+      { "id": "a", "text": "Penne" },
+      { "id": "b", "text": "Orzo" },
+      { "id": "c", "text": "Fusilli" },
+      { "id": "d", "text": "Rigatoni" }
+    ],
+    "answer": { "choiceId": "b" }
+  },
+  {
+    "id": "q5",
+    "type": "mcq",
+    "prompt": "What is the national dish of Japan?",
+    "choices": [
+      { "id": "a", "text": "Ramen" },
+      { "id": "b", "text": "Curry rice" },
+      { "id": "c", "text": "Sushi" },
+      { "id": "d", "text": "Tempura" }
+    ],
+    "answer": { "choiceId": "c" }
+  }
+]

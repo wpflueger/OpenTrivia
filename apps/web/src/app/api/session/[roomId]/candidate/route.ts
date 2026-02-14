@@ -18,7 +18,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       );
     }
 
-    const session = getSession(roomId);
+    const session = await getSession(roomId);
 
     if (!session) {
       return NextResponse.json({ error: "Session not found" }, { status: 404 });
@@ -33,7 +33,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       }
     }
 
-    addCandidate(roomId, playerId, candidate);
+    await addCandidate(roomId, playerId, candidate);
 
     return NextResponse.json({ success: true });
   } catch (error) {
@@ -56,14 +56,14 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
     return NextResponse.json({ error: "roomId is required" }, { status: 400 });
   }
 
-  const session = getSession(roomId);
+  const session = await getSession(roomId);
 
   if (!session) {
     return NextResponse.json({ error: "Session not found" }, { status: 404 });
   }
 
   if (playerId) {
-    const player = getPlayer(roomId, playerId);
+    const player = await getPlayer(roomId, playerId);
     if (!player) {
       return NextResponse.json({ error: "Player not found" }, { status: 404 });
     }

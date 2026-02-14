@@ -5,6 +5,9 @@ const nextConfig = {
   typescript: {
     ignoreBuildErrors: true,
   },
+  env: {
+    REDIS_URL: process.env.REDIS_URL,
+  },
   webpack: (config) => {
     config.resolve.alias = {
       ...config.resolve.alias,

@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { QRCodeSVG } from "qrcode.react";
 import { useGameStore, type Player } from "@/stores/gameStore";
 import { HostWebRTCManager } from "@/lib/webrtc";
+import { setHostWebRTC } from "@/lib/webrtcStore";
 
 function LobbyContent() {
   const router = useRouter();
@@ -79,11 +80,8 @@ function LobbyContent() {
         onMessage: handleMessage,
       });
 
+      setHostWebRTC(webrtcRef.current);
       webrtcRef.current.start();
-
-      return () => {
-        webrtcRef.current?.stop();
-      };
     }
   }, [
     displayRoomId,

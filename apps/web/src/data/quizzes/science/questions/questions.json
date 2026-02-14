@@ -1,0 +1,60 @@
+[
+  {
+    "id": "q1",
+    "type": "mcq",
+    "prompt": "What is the chemical symbol for water?",
+    "choices": [
+      { "id": "a", "text": "H2O" },
+      { "id": "b", "text": "CO2" },
+      { "id": "c", "text": "NaCl" },
+      { "id": "d", "text": "O2" }
+    ],
+    "answer": { "choiceId": "a" }
+  },
+  {
+    "id": "q2",
+    "type": "mcq",
+    "prompt": "What planet is closest to the Sun?",
+    "choices": [
+      { "id": "a", "text": "Venus" },
+      { "id": "b", "text": "Mercury" },
+      { "id": "c", "text": "Earth" },
+      { "id": "d", "text": "Mars" }
+    ],
+    "answer": { "choiceId": "b" }
+  },
+  {
+    "id": "q3",
+    "type": "mcq",
+    "prompt": "What is the hardest natural substance on Earth?",
+    "choices": [
+      { "id": "a", "text": "Gold" },
+      { "id": "b", "text": "Iron" },
+      { "id": "c", "text": "Diamond" },
+      { "id": "d", "text": "Platinum" }
+    ],
+    "answer": { "choiceId": "c" }
+  },
+  {
+    "id": "q4",
+    "type": "boolean",
+    "prompt": "Light travels faster than sound.",
+    "choices": [
+      { "id": "true", "text": "True" },
+      { "id": "false", "text": "False" }
+    ],
+    "answer": { "choiceId": "true" }
+  },
+  {
+    "id": "q5",
+    "type": "mcq",
+    "prompt": "How many bones are in the adult human body?",
+    "choices": [
+      { "id": "a", "text": "186" },
+      { "id": "b", "text": "206" },
+      { "id": "c", "text": "226" },
+      { "id": "d", "text": "256" }
+    ],
+    "answer": { "choiceId": "b" }
+  }
+]

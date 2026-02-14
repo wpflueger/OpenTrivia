@@ -1,0 +1,60 @@
+[
+  {
+    "id": "q1",
+    "type": "mcq",
+    "prompt": "In what year did World War II end?",
+    "choices": [
+      { "id": "a", "text": "1943" },
+      { "id": "b", "text": "1944" },
+      { "id": "c", "text": "1945" },
+      { "id": "d", "text": "1946" }
+    ],
+    "answer": { "choiceId": "c" }
+  },
+  {
+    "id": "q2",
+    "type": "mcq",
+    "prompt": "Who was the first President of the United States?",
+    "choices": [
+      { "id": "a", "text": "Thomas Jefferson" },
+      { "id": "b", "text": "John Adams" },
+      { "id": "c", "text": "George Washington" },
+      { "id": "d", "text": "Benjamin Franklin" }
+    ],
+    "answer": { "choiceId": "c" }
+  },
+  {
+    "id": "q3",
+    "type": "boolean",
+    "prompt": "The Titanic sank in 1912.",
+    "choices": [
+      { "id": "true", "text": "True" },
+      { "id": "false", "text": "False" }
+    ],
+    "answer": { "choiceId": "true" }
+  },
+  {
+    "id": "q4",
+    "type": "mcq",
+    "prompt": "Which ancient wonder was located in Egypt?",
+    "choices": [
+      { "id": "a", "text": "Hanging Gardens" },
+      { "id": "b", "text": "Colossus of Rhodes" },
+      { "id": "c", "text": "Great Pyramid of Giza" },
+      { "id": "d", "text": "Lighthouse of Alexandria" }
+    ],
+    "answer": { "choiceId": "c" }
+  },
+  {
+    "id": "q5",
+    "type": "mcq",
+    "prompt": "What year did the Berlin Wall fall?",
+    "choices": [
+      { "id": "a", "text": "1987" },
+      { "id": "b", "text": "1989" },
+      { "id": "c", "text": "1991" },
+      { "id": "d", "text": "1993" }
+    ],
+    "answer": { "choiceId": "b" }
+  }
+]

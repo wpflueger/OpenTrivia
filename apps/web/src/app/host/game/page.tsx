@@ -4,6 +4,7 @@ import { useEffect, useState, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { useGameStore, type GamePhase } from "@/stores/gameStore";
 import { HostWebRTCManager } from "@/lib/webrtc";
+import { getHostWebRTC, setHostWebRTC } from "@/lib/webrtcStore";
 
 export default function HostGamePage() {
   const router = useRouter();
@@ -35,39 +36,50 @@ export default function HostGamePage() {
     const roomIdParam = useGameStore.getState().roomId;
 
     if (hostToken && roomIdParam) {
-      const signalingUrl =
-        typeof window !== "undefined"
-          ? window.location.origin
-          : "http://localhost:3000";
+      let webrtc = getHostWebRTC();
 
-      webrtcRef.current = new HostWebRTCManager({
-        signalingUrl,
-        roomId: roomIdParam,
-        hostToken,
-        onMessage: (playerId: string, data: unknown) => {
-          const msg = data as {
-            type: string;
-            choiceId?: string;
-            timeMs?: number;
-          };
-          if (msg.type === "answer" && currentQuestion) {
-            submitAnswer(
-              playerId,
-              currentQuestion.id,
-              [msg.choiceId || ""],
-              msg.timeMs || 0,
-            );
-          }
-        },
-      });
+      if (!webrtc) {
+        const signalingUrl =
+          typeof window !== "undefined"
+            ? window.location.origin
+            : "http://localhost:3000";
 
-      webrtcRef.current.start();
+        webrtc = new HostWebRTCManager({
+          signalingUrl,
+          roomId: roomIdParam,
+          hostToken,
+          onMessage: (playerId: string, data: unknown) => {
+            const msg = data as {
+              type: string;
+              choiceId?: string;
+              timeMs?: number;
+            };
+            const currentQ =
+              useGameStore.getState().questions[
+                useGameStore.getState().currentQuestionIndex
+              ];
+            if (msg.type === "answer" && currentQ) {
+              submitAnswer(
+                playerId,
+                currentQ.id,
+                [msg.choiceId || ""],
+                msg.timeMs || 0,
+              );
+            }
+          },
+        });
+
+        setHostWebRTC(webrtc);
+      }
+
+      webrtcRef.current = webrtc;
+      webrtc.start();
     }
 
     return () => {
-      webrtcRef.current?.stop();
+      // Don't stop on unmount - keep WebRTC alive for the session
     };
-  }, [submitAnswer, currentQuestion]);
+  }, []);
 
   useEffect(() => {
     if (phase === "countdown" && countdown > 0) {

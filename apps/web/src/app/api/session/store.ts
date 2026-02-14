@@ -1,3 +1,35 @@
+import Redis from "ioredis";
+
+let redis: Redis | null = null;
+
+function getRedis(): Redis | null {
+  if (redis) return redis;
+
+  const redisUrl = process.env.REDIS_URL;
+  console.log("Redis URL present:", !!redisUrl, redisUrl ? "yes" : "no");
+  if (redisUrl) {
+    try {
+      redis = new Redis(redisUrl, {
+        retryStrategy: (times) => {
+          if (times > 3) return null;
+          return Math.min(times * 100, 3000);
+        },
+        maxRetriesPerRequest: 1,
+      });
+
+      redis.on("connect", () => console.log("Redis: connected"));
+      redis.on("error", (e) => console.log("Redis: error", e.message));
+
+      return redis;
+    } catch (e) {
+      console.error("Failed to connect to Redis:", e);
+      return null;
+    }
+  }
+  console.log("No Redis URL found, using in-memory");
+  return null;
+}
+
 interface PlayerConnection {
   playerId: string;
   offer?: RTCSessionDescriptionInit;
@@ -13,7 +45,7 @@ export interface Session {
   players: Map<string, PlayerConnection>;
 }
 
-const sessions = new Map<string, Session>();
+const inMemorySessions = new Map<string, Session>();
 
 function generateToken(): string {
   const chars =
@@ -34,49 +66,80 @@ function generateRoomId(): string {
   return result;
 }
 
-export function createSession(): { roomId: string; hostToken: string } {
+function serializeSession(session: Session): string {
+  const obj = {
+    roomId: session.roomId,
+    hostToken: session.hostToken,
+    createdAt: session.createdAt,
+    players: Array.from(session.players.entries()),
+  };
+  return JSON.stringify(obj);
+}
+
+function deserializeSession(data: string): Session | null {
+  try {
+    const obj = JSON.parse(data);
+    return {
+      ...obj,
+      players: new Map(obj.players),
+    };
+  } catch {
+    return null;
+  }
+}
+
+const SESSION_TTL = 3600 * 4; // 4 hours
+
+async function saveSession(session: Session): Promise<void> {
+  const r = getRedis();
+  if (r) {
+    await r.setex(
+      `session:${session.roomId}`,
+      SESSION_TTL,
+      serializeSession(session),
+    );
+  } else {
+    inMemorySessions.set(session.roomId, session);
+  }
+}
+
+export async function createSession(): Promise<{
+  roomId: string;
+  hostToken: string;
+}> {
   const roomId = generateRoomId();
   const hostToken = generateToken();
 
-  sessions.set(roomId, {
+  const session: Session = {
     roomId,
     hostToken,
     createdAt: Date.now(),
     players: new Map(),
-  });
+  };
+
+  await saveSession(session);
 
   return { roomId, hostToken };
 }
 
-export function getSession(roomId: string): Session | undefined {
-  return sessions.get(roomId);
-}
-
-export function getOrCreatePlayer(
-  roomId: string,
-  playerId: string,
-): PlayerConnection | undefined {
-  const session = sessions.get(roomId);
-  if (!session) return undefined;
-
-  let player = session.players.get(playerId);
-  if (!player) {
-    player = {
-      playerId,
-      createdAt: Date.now(),
-      candidates: [],
-    };
-    session.players.set(playerId, player);
+export async function getSession(roomId: string): Promise<Session | undefined> {
+  const r = getRedis();
+  if (r) {
+    const data = await r.get(`session:${roomId}`);
+    if (data) {
+      return deserializeSession(data) ?? undefined;
+    }
+    return undefined;
   }
-  return player;
+  return inMemorySessions.get(roomId);
 }
 
-export function setPlayerOffer(
+export async function setPlayerOffer(
   roomId: string,
   playerId: string,
   offer: RTCSessionDescriptionInit,
-): void {
-  const session = sessions.get(roomId);
+): Promise<void> {
+  const session = await getSession(roomId);
   if (!session) return;
 
   let player = session.players.get(playerId);
@@ -89,28 +152,31 @@ export function setPlayerOffer(
     session.players.set(playerId, player);
   }
   player.offer = offer;
+
+  await saveSession(session);
 }
 
-export function setPlayerAnswer(
+export async function setPlayerAnswer(
   roomId: string,
   playerId: string,
   answer: RTCSessionDescriptionInit,
-): void {
-  const session = sessions.get(roomId);
+): Promise<void> {
+  const session = await getSession(roomId);
   if (!session) return;
 
   const player = session.players.get(playerId);
   if (player) {
     player.answer = answer;
+    await saveSession(session);
   }
 }
 
-export function addCandidate(
+export async function addCandidate(
   roomId: string,
   playerId: string,
   candidate: RTCIceCandidateInit,
-): void {
-  const session = sessions.get(roomId);
+): Promise<void> {
+  const session = await getSession(roomId);
   if (!session) return;
 
   let player = session.players.get(playerId);
@@ -123,30 +189,36 @@ export function addCandidate(
     session.players.set(playerId, player);
   }
   player.candidates.push(candidate);
+
+  await saveSession(session);
 }
 
-export function getPlayer(
+export async function getPlayer(
   roomId: string,
   playerId: string,
-): PlayerConnection | undefined {
-  const session = sessions.get(roomId);
+): Promise<PlayerConnection | undefined> {
+  const session = await getSession(roomId);
   if (!session) return undefined;
   return session.players.get(playerId);
 }
 
-export function getAllPlayers(roomId: string): PlayerConnection[] {
-  const session = sessions.get(roomId);
+export async function getAllPlayers(
+  roomId: string,
+): Promise<PlayerConnection[]> {
+  const session = await getSession(roomId);
   if (!session) return [];
   return Array.from(session.players.values());
 }
 
-export function getPlayerList(roomId: string): {
-  playerId: string;
-  hasOffer: boolean;
-  hasAnswer: boolean;
-  candidateCount: number;
-}[] {
-  const session = sessions.get(roomId);
+export async function getPlayerList(roomId: string): Promise<
+  {
+    playerId: string;
+    hasOffer: boolean;
+    hasAnswer: boolean;
+    candidateCount: number;
+  }[]
+> {
+  const session = await getSession(roomId);
   if (!session) return [];
   return Array.from(session.players.values()).map((p) => ({
     playerId: p.playerId,

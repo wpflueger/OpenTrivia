@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import fs from "fs";
 import path from "path";
 
-const QUIZZES_PATH = path.join(process.cwd(), "..", "..", "quizzes");
+const QUIZZES_PATH = path.join(process.cwd(), "src", "data", "quizzes");
 
 interface Question {
   id: string;

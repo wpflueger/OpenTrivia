@@ -184,7 +184,7 @@ export class HostWebRTCManager {
           data.candidatesByPlayer,
         )) {
           const connection = this.connections.get(playerId);
-          if (!connection) continue;
+          if (!connection || !connection.remoteDescription) continue;
 
           const lastProcessed = this.processedCandidates.get(playerId) || 0;
           const newCandidates = (candidates as RTCIceCandidateInit[]).slice(
@@ -257,7 +257,6 @@ export class HostWebRTCManager {
   }
 
   disconnect(): void {
-    this.stop();
     this.connections.forEach((conn) => conn.close());
     this.connections.clear();
     this.dataChannels.clear();
@@ -377,6 +376,10 @@ export class PlayerWebRTCManager {
   }
 
   private async checkForCandidates(): Promise<void> {
+    if (!this.connection?.remoteDescription) {
+      return;
+    }
+
     try {
       const response = await fetch(
         `${this.signalingUrl}/api/session/${this.roomId}/candidate?playerId=${this.playerId}&afterIndex=${this.processedCandidates}`,

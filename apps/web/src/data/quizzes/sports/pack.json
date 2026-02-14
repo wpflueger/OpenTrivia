@@ -1,0 +1,13 @@
+{
+  "schemaVersion": "1.0",
+  "title": "Sports",
+  "description": "Questions about sports",
+  "author": "OpenTrivia",
+  "license": "MIT",
+  "rounds": [
+    {
+      "id": "round1",
+      "questions": [{ "file": "questions/questions.json" }]
+    }
+  ]
+}

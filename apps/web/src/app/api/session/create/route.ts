@@ -3,7 +3,7 @@ import { createSession, getSession, getPlayerList } from "../store";
 
 export async function POST(request: NextRequest) {
   try {
-    const { roomId, hostToken } = createSession();
+    const { roomId, hostToken } = await createSession();
 
     return NextResponse.json({ roomId, hostToken });
   } catch (error) {
@@ -23,13 +23,13 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: "roomId is required" }, { status: 400 });
   }
 
-  const session = getSession(roomId);
+  const session = await getSession(roomId);
 
   if (!session) {
     return NextResponse.json({ error: "Session not found" }, { status: 404 });
   }
 
-  const playerList = getPlayerList(roomId);
+  const playerList = await getPlayerList(roomId);
 
   return NextResponse.json({
     roomId: session.roomId,

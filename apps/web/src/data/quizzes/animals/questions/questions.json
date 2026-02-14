@@ -1,0 +1,60 @@
+[
+  {
+    "id": "q1",
+    "type": "mcq",
+    "prompt": "What is the fastest land animal?",
+    "choices": [
+      { "id": "a", "text": "Lion" },
+      { "id": "b", "text": "Cheetah" },
+      { "id": "c", "text": "Leopard" },
+      { "id": "d", "text": "Gazelle" }
+    ],
+    "answer": { "choiceId": "b" }
+  },
+  {
+    "id": "q2",
+    "type": "mcq",
+    "prompt": "How many hearts does an octopus have?",
+    "choices": [
+      { "id": "a", "text": "One" },
+      { "id": "b", "text": "Two" },
+      { "id": "c", "text": "Three" },
+      { "id": "d", "text": "Four" }
+    ],
+    "answer": { "choiceId": "c" }
+  },
+  {
+    "id": "q3",
+    "type": "boolean",
+    "prompt": "Bats are blind.",
+    "choices": [
+      { "id": "true", "text": "True" },
+      { "id": "false", "text": "False" }
+    ],
+    "answer": { "choiceId": "false" }
+  },
+  {
+    "id": "q4",
+    "type": "mcq",
+    "prompt": "What is the largest mammal in the world?",
+    "choices": [
+      { "id": "a", "text": "Elephant" },
+      { "id": "b", "text": "Blue Whale" },
+      { "id": "c", "text": "Giraffe" },
+      { "id": "d", "text": "Hippopotamus" }
+    ],
+    "answer": { "choiceId": "b" }
+  },
+  {
+    "id": "q5",
+    "type": "mcq",
+    "prompt": "Which bird is known for its ability to mimic human speech?",
+    "choices": [
+      { "id": "a", "text": "Sparrow" },
+      { "id": "b", "text": "Parrot" },
+      { "id": "c", "text": "Eagle" },
+      { "id": "d", "text": "Hawk" }
+    ],
+    "answer": { "choiceId": "b" }
+  }
+]

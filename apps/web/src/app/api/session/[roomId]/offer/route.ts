@@ -23,7 +23,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       );
     }
 
-    const session = getSession(roomId);
+    const session = await getSession(roomId);
 
     if (!session) {
       return NextResponse.json({ error: "Session not found" }, { status: 404 });
@@ -37,7 +37,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     }
 
     const actualPlayerId = playerId || crypto.randomUUID();
-    setPlayerOffer(roomId, actualPlayerId, offer);
+    await setPlayerOffer(roomId, actualPlayerId, offer);
 
     return NextResponse.json({ success: true, playerId: actualPlayerId });
   } catch (error) {
@@ -56,7 +56,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
     return NextResponse.json({ error: "roomId is required" }, { status: 400 });
   }
 
-  const session = getSession(roomId);
+  const session = await getSession(roomId);
 
   if (!session) {
     return NextResponse.json({ error: "Session not found" }, { status: 404 });
@@ -67,14 +67,14 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
   }
 
   if (playerId) {
-    const player = getPlayer(roomId, playerId);
+    const player = await getPlayer(roomId, playerId);
     if (!player) {
       return NextResponse.json({ error: "Player not found" }, { status: 404 });
     }
     return NextResponse.json({ offer: player.offer });
   }
 
-  const playerList = getPlayerList(roomId);
+  const playerList = await getPlayerList(roomId);
 
   return NextResponse.json({ players: playerList });
 }
