@@ -1,0 +1,27 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "lib": ["ES2022"],
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "resolveJsonModule": true,
+    "allowJs": true,
+    "strict": true,
+    "noEmit": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true,
+    "isolatedModules": true,
+    "verbatimModuleSyntax": true,
+    "paths": {
+      "@opentriiva/protocol": ["./packages/protocol/src/index.ts"],
+      "@opentriiva/pack-schema": ["./packages/pack-schema/src/index.ts"]
+    }
+  },
+  "include": [],
+  "references": [
+    { "path": "./apps/web" },
+    { "path": "./packages/protocol" },
+    { "path": "./packages/pack-schema" }
+  ]
+}
