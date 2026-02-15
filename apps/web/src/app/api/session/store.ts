@@ -32,6 +32,7 @@ function getRedis(): Redis | null {
 
 interface PlayerConnection {
   playerId: string;
+  nickname?: string;
   offer?: RTCSessionDescriptionInit;
   answer?: RTCSessionDescriptionInit;
   candidates: RTCIceCandidateInit[];
@@ -137,6 +138,7 @@ export async function getSession(roomId: string): Promise<Session | undefined> {
 export async function setPlayerOffer(
   roomId: string,
   playerId: string,
+  nickname: string | undefined,
   offer: RTCSessionDescriptionInit,
 ): Promise<void> {
   const session = await getSession(roomId);
@@ -150,6 +152,9 @@ export async function setPlayerOffer(
       candidates: [],
     };
     session.players.set(playerId, player);
+  }
+  if (nickname) {
+    player.nickname = nickname;
   }
   player.offer = offer;
 
@@ -213,6 +218,7 @@ export async function getAllPlayers(
 export async function getPlayerList(roomId: string): Promise<
   {
     playerId: string;
+    nickname?: string;
     hasOffer: boolean;
     hasAnswer: boolean;
     candidateCount: number;
@@ -222,6 +228,7 @@ export async function getPlayerList(roomId: string): Promise<
   if (!session) return [];
   return Array.from(session.players.values()).map((p) => ({
     playerId: p.playerId,
+    nickname: p.nickname,
     hasOffer: !!p.offer,
     hasAnswer: !!p.answer,
     candidateCount: p.candidates.length,

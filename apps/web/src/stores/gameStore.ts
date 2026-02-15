@@ -92,8 +92,20 @@ export const useGameStore = create<GameState & GameActions>((set, get) => ({
 
   addPlayer: (player) =>
     set((state) => ({
-      players: [...state.players, player],
-      scores: new Map(state.scores).set(player.id, 0),
+      players: state.players.some((p) => p.id === player.id)
+        ? state.players.map((existing) =>
+            existing.id === player.id
+              ? {
+                  ...existing,
+                  nickname: player.nickname,
+                  isConnected: true,
+                }
+              : existing,
+          )
+        : [...state.players, player],
+      scores: state.scores.has(player.id)
+        ? new Map(state.scores)
+        : new Map(state.scores).set(player.id, 0),
     })),
 
   removePlayer: (playerId) =>
@@ -150,7 +162,11 @@ export const useGameStore = create<GameState & GameActions>((set, get) => ({
     const state = get();
     const question = state.questions[state.currentQuestionIndex];
 
-    if (!question || state.isLocked) return;
+    if (!question || question.id !== questionId) return;
+    if (state.answers.has(playerId)) return;
+
+    const maxAcceptedTime = state.settings.questionTimeLimit + 1000;
+    if (timeMs < 0 || timeMs > maxAcceptedTime) return;
 
     const newAnswers = new Map(state.answers);
     newAnswers.set(playerId, choiceIds);

@@ -49,94 +49,78 @@ def test_full_game():
         # Start game
         print("\n3. Starting game...")
         host_page.locator('button:has-text("START GAME")').click()
-        host_page.wait_for_timeout(4000)
+        host_page.wait_for_timeout(4500)
 
-        # Players see question
-        print("\n4. Players answering...")
-        p1_text = player1_page.locator("body").inner_text()
-        p2_text = player2_page.locator("body").inner_text()
+        print("\n4. Playing through full game...")
+        question_rounds_completed = 0
 
-        if "QUESTION" in p1_text:
-            # Alice clicks first answer
-            player1_page.locator("button").nth(0).click()
-            print("   ✓ Alice answered")
+        for _ in range(8):
+            host_text = host_page.locator("body").inner_text()
 
-            # Submit if button appears
-            if player1_page.locator('button:has-text("SUBMIT")').is_visible():
-                player1_page.locator('button:has-text("SUBMIT")').click()
-                print("   ✓ Alice submitted")
+            if "GAME OVER" in host_text:
+                break
 
-        if "QUESTION" in p2_text:
-            # Bob clicks second answer
-            player2_page.locator("button").nth(1).click()
-            print("   ✓ Bob answered")
+            is_question_phase = "QUESTION" in host_text and (
+                "REVEAL ANSWERS" in host_text or "LOCK ANSWERS" in host_text
+            )
 
-            if player2_page.locator('button:has-text("SUBMIT")').is_visible():
-                player2_page.locator('button:has-text("SUBMIT")').click()
-                print("   ✓ Bob submitted")
+            if is_question_phase:
+                if "QUESTION" in player1_page.locator("body").inner_text():
+                    player1_page.locator("button").nth(0).click()
+                    if player1_page.locator(
+                        'button:has-text("SUBMIT ANSWER")'
+                    ).is_visible(timeout=1000):
+                        player1_page.locator('button:has-text("SUBMIT ANSWER")').click()
 
-        # Wait for reveal
-        host_page.wait_for_timeout(5000)
+                if "QUESTION" in player2_page.locator("body").inner_text():
+                    player2_page.locator("button").nth(1).click()
+                    if player2_page.locator(
+                        'button:has-text("SUBMIT ANSWER")'
+                    ).is_visible(timeout=1000):
+                        player2_page.locator('button:has-text("SUBMIT ANSWER")').click()
 
-        print("\n5. Checking results...")
-        host_text = host_page.locator("body").inner_text()
-
-        print(
-            f"   Host shows answers: {'ANSWERED' in host_text or '1/2' in host_text or '2/2' in host_text}"
-        )
-
-        # Host reveals answer
-        if host_page.locator('button:has-text("LOCK ANSWERS")').is_visible():
-            host_page.locator('button:has-text("LOCK ANSWERS")').click()
-            print("   ✓ Host locked answers")
-
-        host_page.wait_for_timeout(3000)
-
-        host_text = host_page.locator("body").inner_text()
-        print(
-            f"   Host shows correct answer: {'CORRECT' in host_text or '#1' in host_text}"
-        )
-
-        # Check if leaderboard shows
-        if host_page.locator('button:has-text("NEXT QUESTION")').is_visible():
-            print("   ✓ Leaderboard displayed")
-
-        # End game (click through questions)
-        print("\n6. Finishing game...")
-        while host_page.locator('button:has-text("NEXT QUESTION")').is_visible(
-            timeout=3000
-        ):
-            host_page.locator('button:has-text("NEXT QUESTION")').click()
-            host_page.wait_for_timeout(4000)
-
-            # Answer questions
-            if player1_page.locator("button").count() > 0:
-                player1_page.locator("button").first.click()
-                if player1_page.locator('button:has-text("SUBMIT")').is_visible(
+                if host_page.locator('button:has-text("REVEAL ANSWERS")').is_visible(
                     timeout=1000
                 ):
-                    player1_page.locator('button:has-text("SUBMIT")').click()
+                    host_page.locator('button:has-text("REVEAL ANSWERS")').click()
+                else:
+                    host_page.locator('button:has-text("LOCK ANSWERS")').click()
+                host_page.wait_for_timeout(3500)
 
-            if player2_page.locator("button").count() > 0:
-                player2_page.locator("button").first.click()
-                if player2_page.locator('button:has-text("SUBMIT")').is_visible(
-                    timeout=1000
+                host_reveal_text = host_page.locator("body").inner_text()
+                if "CORRECT ANSWER" in host_reveal_text:
+                    question_rounds_completed += 1
+
+                if host_page.locator('button:has-text("NEXT QUESTION")').is_visible(
+                    timeout=2000
                 ):
-                    player2_page.locator('button:has-text("SUBMIT")').click()
+                    host_page.locator('button:has-text("NEXT QUESTION")').click()
+                    host_page.wait_for_timeout(4500)
+                    continue
 
-            # Lock/next
-            if host_page.locator('button:has-text("LOCK ANSWERS")').is_visible(
-                timeout=1000
-            ):
-                host_page.locator('button:has-text("LOCK ANSWERS")').click()
+                if host_page.locator('button:has-text("SEE RESULTS")').is_visible(
+                    timeout=2000
+                ):
+                    host_page.locator('button:has-text("SEE RESULTS")').click()
+                    host_page.wait_for_timeout(3000)
+                    break
 
-        # Check for game over
-        host_page.wait_for_timeout(2000)
+            host_page.wait_for_timeout(1200)
+
         host_text = host_page.locator("body").inner_text()
 
-        print(f"\n=== Results ===")
-        print(f"Game Over shown: {'GAME OVER' in host_text}")
-        print(f"Leaderboard shown: {'Alice' in host_text or 'Bob' in host_text}")
+        print("\n5. Validating end state...")
+        print(f"   Questions completed: {question_rounds_completed}")
+        print(f"   Game Over shown: {'GAME OVER' in host_text}")
+        print(
+            f"   Leaderboard names shown: {'Alice' in host_text or 'Bob' in host_text}"
+        )
+
+        assert "QUESTION" in host_text or question_rounds_completed >= 1
+
+        if question_rounds_completed >= 1:
+            assert "GAME OVER" in host_text
+            assert "Alice" in host_text or "Bob" in host_text
 
         # Screenshot
         host_page.screenshot(path="/tmp/game_over.png", full_page=True)

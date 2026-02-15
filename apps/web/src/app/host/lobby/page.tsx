@@ -23,6 +23,7 @@ function LobbyContent() {
     questions,
     setRoomId,
     addPlayer,
+    setPlayerReady,
     removePlayer,
     startGame,
   } = useGameStore();
@@ -56,6 +57,13 @@ function LobbyContent() {
     console.log("Received message from", playerId, data);
   }, []);
 
+  const handlePlayerReady = useCallback(
+    (playerId: string) => {
+      setPlayerReady(playerId, true);
+    },
+    [setPlayerReady],
+  );
+
   useEffect(() => {
     if (roomId) {
       setRoomId(roomId);
@@ -76,6 +84,7 @@ function LobbyContent() {
         roomId: displayRoomId,
         hostToken: hostToken,
         onPlayerJoin: handlePlayerJoin,
+        onPlayerReady: handlePlayerReady,
         onPlayerLeave: handlePlayerLeave,
         onMessage: handleMessage,
       });
@@ -87,6 +96,7 @@ function LobbyContent() {
     displayRoomId,
     hostToken,
     handlePlayerJoin,
+    handlePlayerReady,
     handlePlayerLeave,
     handleMessage,
   ]);

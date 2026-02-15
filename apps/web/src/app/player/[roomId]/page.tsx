@@ -20,6 +20,17 @@ interface QuestionData {
   durationMs: number;
 }
 
+interface RevealPayload {
+  correctChoiceId: string;
+  resultsByPlayer: Record<string, { correct: boolean; score: number }>;
+}
+
+interface LeaderboardEntry {
+  id: string;
+  nickname: string;
+  score: number;
+}
+
 interface PlayerState {
   phase: PlayerPhase;
   nickname: string;
@@ -29,6 +40,7 @@ interface PlayerState {
   score: number;
   lastAnswerCorrect: boolean | null;
   timeRemaining: number;
+  answerStatus: "submitted" | "timeout" | null;
 }
 
 function PlayerGameContent() {
@@ -45,6 +57,7 @@ function PlayerGameContent() {
     score: 0,
     lastAnswerCorrect: null,
     timeRemaining: 0,
+    answerStatus: null,
   });
 
   const [selectedChoice, setSelectedChoice] = useState<string | null>(null);
@@ -77,21 +90,53 @@ function PlayerGameContent() {
         signalingUrl,
         roomId,
         playerId,
+        nickname: decodeURIComponent(nickname),
         onMessage: (data: unknown) => {
-          const msg = data as { type: string; payload?: QuestionData };
+          const msg = data as {
+            type: string;
+            payload?: QuestionData | RevealPayload | LeaderboardEntry[];
+          };
           if (msg.type === "question" && msg.payload) {
+            const payload = msg.payload as QuestionData;
+            setSelectedChoice(null);
             setState((prev) => ({
               ...prev,
-              question: msg.payload || null,
+              question: payload,
               phase: "question",
-              timeRemaining: Math.floor(
-                (msg.payload?.durationMs || 20000) / 1000,
-              ),
+              timeRemaining: Math.floor((payload.durationMs || 20000) / 1000),
+              lastAnswerCorrect: null,
+              answerStatus: null,
             }));
           } else if (msg.type === "reveal") {
-            setState((prev) => ({ ...prev, phase: "reveal" }));
+            const payload = msg.payload as RevealPayload | undefined;
+            const playerResult = payload?.resultsByPlayer?.[playerId];
+
+            setState((prev) => ({
+              ...prev,
+              phase: "reveal",
+              lastAnswerCorrect:
+                typeof playerResult?.correct === "boolean"
+                  ? playerResult.correct
+                  : prev.lastAnswerCorrect,
+              score:
+                typeof playerResult?.score === "number"
+                  ? playerResult.score
+                  : prev.score,
+              answerStatus: null,
+            }));
           } else if (msg.type === "leaderboard") {
-            setState((prev) => ({ ...prev, phase: "leaderboard" }));
+            const payload = msg.payload as LeaderboardEntry[] | undefined;
+            const playerEntry = payload?.find((entry) => entry.id === playerId);
+
+            setState((prev) => ({
+              ...prev,
+              phase: "leaderboard",
+              score:
+                typeof playerEntry?.score === "number"
+                  ? playerEntry.score
+                  : prev.score,
+              answerStatus: null,
+            }));
           } else if (msg.type === "ended") {
             setState((prev) => ({ ...prev, phase: "ended" }));
           }
@@ -114,6 +159,22 @@ function PlayerGameContent() {
 
   useEffect(() => {
     if (
+      connectionStatus === "disconnected" &&
+      state.playerId &&
+      state.roomId &&
+      state.phase !== "ended"
+    ) {
+      const reconnectTimer = setTimeout(() => {
+        setConnectionStatus("connecting");
+        webrtcRef.current?.connect();
+      }, 1500);
+
+      return () => clearTimeout(reconnectTimer);
+    }
+  }, [connectionStatus, state.playerId, state.roomId, state.phase]);
+
+  useEffect(() => {
+    if (
       state.phase === "question" &&
       state.question &&
       state.timeRemaining > 0
@@ -122,7 +183,12 @@ function PlayerGameContent() {
         setState((prev) => {
           if (prev.timeRemaining <= 1) {
             clearInterval(timer);
-            return { ...prev, phase: "answered", timeRemaining: 0 };
+            return {
+              ...prev,
+              phase: "answered",
+              timeRemaining: 0,
+              answerStatus: "timeout",
+            };
           }
           return { ...prev, timeRemaining: prev.timeRemaining - 1 };
         });
@@ -141,22 +207,11 @@ function PlayerGameContent() {
     if (!selectedChoice || state.phase !== "question" || !state.question)
       return;
 
-    const isCorrect =
-      selectedChoice ===
-      state.question.choices.find(
-        (c) => c.id === state.question?.choices[0]?.id,
-      )?.id
-        ? false
-        : true;
-
-    const bonus = state.timeRemaining * 50;
-    const scoreDelta = isCorrect ? 1000 + bonus : 0;
-
     setState((prev) => ({
       ...prev,
       phase: "answered",
-      score: prev.score + scoreDelta,
-      lastAnswerCorrect: isCorrect,
+      lastAnswerCorrect: null,
+      answerStatus: "submitted",
     }));
 
     webrtcRef.current?.send({
@@ -285,10 +340,12 @@ function PlayerGameContent() {
       <div className="min-h-screen flex flex-col items-center justify-center p-4 relative z-10">
         <div className="text-center">
           <div className="text-6xl mb-4">
-            {state.lastAnswerCorrect ? "✓" : "⏱"}
+            {state.answerStatus === "submitted" ? "✓" : "⏱"}
           </div>
           <h2 className="text-2xl font-bold cyber-glow-text-lime mb-2">
-            {state.lastAnswerCorrect ? "ANSWER SUBMITTED!" : "TOO LATE!"}
+            {state.answerStatus === "submitted"
+              ? "ANSWER SUBMITTED!"
+              : "TOO LATE!"}
           </h2>
           <p className="text-xl text-cyber-white-dim font-mono">
             Waiting for host...
@@ -316,6 +373,41 @@ function PlayerGameContent() {
             {state.lastAnswerCorrect ? "CORRECT!" : "WRONG!"}
           </h2>
           <p className="text-xl cyber-score">SCORE: {state.score}</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (state.phase === "leaderboard") {
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center p-4 relative z-10">
+        <div className="text-center">
+          <h2 className="text-2xl font-bold cyber-glow-text mb-2">
+            LEADERBOARD
+          </h2>
+          <p className="text-xl cyber-score mb-2">SCORE: {state.score}</p>
+          <p className="text-cyber-white-dim font-mono">
+            Next question soon...
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  if (state.phase === "ended") {
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center p-4 relative z-10">
+        <div className="text-center">
+          <h2 className="text-3xl font-bold cyber-glow-text mb-3">GAME OVER</h2>
+          <p className="text-2xl cyber-score mb-6">
+            FINAL SCORE: {state.score}
+          </p>
+          <button
+            onClick={handleBack}
+            className="cyber-button px-6 py-3 rounded-xl"
+          >
+            BACK TO JOIN
+          </button>
         </div>
       </div>
     );

@@ -120,6 +120,18 @@ describe("Game Store", () => {
 
       expect(useGameStore.getState().players).toHaveLength(3);
     });
+
+    it("should not duplicate an existing player", () => {
+      const { addPlayer } = useGameStore.getState();
+
+      addPlayer(mockPlayers[0]);
+      addPlayer({ ...mockPlayers[0], nickname: "Alice 2" });
+
+      const state = useGameStore.getState();
+      expect(state.players).toHaveLength(1);
+      expect(state.players[0].nickname).toBe("Alice 2");
+      expect(state.scores.get("p1")).toBe(0);
+    });
   });
 
   describe("removePlayer", () => {
@@ -324,13 +336,21 @@ describe("Game Store", () => {
       expect(scores.get("p1")).toBe(0);
     });
 
-    it("should not accept answers when locked", () => {
-      const { showQuestion, lockQuestion, submitAnswer } =
-        useGameStore.getState();
+    it("should not accept answers for a different question", () => {
+      const { showQuestion, submitAnswer } = useGameStore.getState();
 
       showQuestion();
-      lockQuestion();
-      submitAnswer("p1", "q1", ["b"], 5000);
+      submitAnswer("p1", "q2", ["b"], 5000);
+
+      const answers = useGameStore.getState().answers;
+      expect(answers.size).toBe(0);
+    });
+
+    it("should reject answers that exceed time limit", () => {
+      const { showQuestion, submitAnswer, settings } = useGameStore.getState();
+
+      showQuestion();
+      submitAnswer("p1", "q1", ["b"], settings.questionTimeLimit + 5000);
 
       const answers = useGameStore.getState().answers;
       expect(answers.size).toBe(0);
@@ -381,7 +401,7 @@ describe("Game Store", () => {
       useGameStore.getState().addPlayer(mockPlayers[0]);
       useGameStore.getState().setQuestions(mockQuestions);
       startGame();
-      useGameStore.getState().setState({ currentQuestionIndex: 2 });
+      useGameStore.setState({ currentQuestionIndex: 2 });
       nextQuestion();
 
       expect(useGameStore.getState().phase).toBe("ended");

@@ -14,7 +14,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
   try {
     const { roomId } = await params;
     const body = await request.json();
-    const { playerId, offer, hostToken } = body;
+    const { playerId, nickname, offer, hostToken } = body;
 
     if (!roomId || !offer) {
       return NextResponse.json(
@@ -37,7 +37,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     }
 
     const actualPlayerId = playerId || crypto.randomUUID();
-    await setPlayerOffer(roomId, actualPlayerId, offer);
+    await setPlayerOffer(roomId, actualPlayerId, nickname, offer);
 
     return NextResponse.json({ success: true, playerId: actualPlayerId });
   } catch (error) {

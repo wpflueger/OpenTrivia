@@ -2,14 +2,16 @@
 
 import { useEffect, useState, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
-import { useGameStore, type GamePhase } from "@/stores/gameStore";
+import { useGameStore } from "@/stores/gameStore";
 import { HostWebRTCManager } from "@/lib/webrtc";
 import { getHostWebRTC, setHostWebRTC } from "@/lib/webrtcStore";
 
 export default function HostGamePage() {
   const router = useRouter();
   const [countdown, setCountdown] = useState(3);
+  const [questionTimeRemaining, setQuestionTimeRemaining] = useState(0);
   const webrtcRef = useRef<HostWebRTCManager | null>(null);
+  const revealTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const {
     phase,
@@ -101,30 +103,56 @@ export default function HostGamePage() {
     }
   }, [phase, countdown, showQuestion, currentQuestion]);
 
-  useEffect(() => {
-    if (phase === "question" && currentQuestion) {
-      const duration = currentQuestion.type === "boolean" ? 20000 : 30000;
-      const timer = setTimeout(() => {
-        lockQuestion();
-      }, duration);
-      return () => clearTimeout(timer);
-    }
-  }, [phase, currentQuestion, lockQuestion]);
-
   const getSortedLeaderboard = useCallback(() => {
     return [...players]
       .map((p) => ({ ...p, score: scores.get(p.id) || 0 }))
       .sort((a, b) => b.score - a.score);
   }, [players, scores]);
 
-  const handleReveal = () => {
+  const clearRevealTimer = useCallback(() => {
+    if (revealTimerRef.current) {
+      clearTimeout(revealTimerRef.current);
+      revealTimerRef.current = null;
+    }
+  }, []);
+
+  const handleReveal = useCallback(() => {
+    if (phase !== "question" || !currentQuestion) {
+      return;
+    }
+
+    clearRevealTimer();
+    lockQuestion();
     revealAnswer();
 
     if (webrtcRef.current) {
-      webrtcRef.current.broadcast({ type: "reveal" });
+      const resultsByPlayer = players.reduce<
+        Record<string, { correct: boolean; score: number }>
+      >((acc, player) => {
+        const submittedAnswer = answers.get(player.id) ?? [];
+        const isCorrect = submittedAnswer.includes(
+          currentQuestion.answer.choiceId,
+        );
+
+        acc[player.id] = {
+          correct: isCorrect,
+          score: scores.get(player.id) || 0,
+        };
+
+        return acc;
+      }, {});
+
+      webrtcRef.current.broadcast({
+        type: "reveal",
+        payload: {
+          correctChoiceId: currentQuestion.answer.choiceId,
+          resultsByPlayer,
+        },
+      });
     }
 
-    setTimeout(() => {
+    revealTimerRef.current = setTimeout(() => {
+      revealTimerRef.current = null;
       if (currentQuestionIndex < questions.length - 1) {
         setPhase("leaderboard");
         if (webrtcRef.current) {
@@ -141,7 +169,60 @@ export default function HostGamePage() {
         }
       }
     }, 3000);
-  };
+  }, [
+    phase,
+    currentQuestion,
+    clearRevealTimer,
+    lockQuestion,
+    revealAnswer,
+    players,
+    answers,
+    scores,
+    currentQuestionIndex,
+    questions.length,
+    setPhase,
+    getSortedLeaderboard,
+    endGame,
+  ]);
+
+  useEffect(() => {
+    if (phase === "question" && currentQuestion) {
+      const duration = currentQuestion.type === "boolean" ? 20000 : 30000;
+      setQuestionTimeRemaining(Math.floor(duration / 1000));
+
+      const countdownTimer = setInterval(() => {
+        setQuestionTimeRemaining((prev) => (prev <= 1 ? 0 : prev - 1));
+      }, 1000);
+
+      const timer = setTimeout(() => {
+        handleReveal();
+      }, duration);
+
+      return () => {
+        clearTimeout(timer);
+        clearInterval(countdownTimer);
+      };
+    }
+  }, [phase, currentQuestion, handleReveal]);
+
+  useEffect(() => {
+    if (
+      phase === "question" &&
+      players.length > 0 &&
+      answers.size >= players.length
+    ) {
+      const timer = setTimeout(() => {
+        handleReveal();
+      }, 400);
+      return () => clearTimeout(timer);
+    }
+  }, [phase, players.length, answers.size, handleReveal]);
+
+  useEffect(() => {
+    return () => {
+      clearRevealTimer();
+    };
+  }, [clearRevealTimer]);
 
   const handleNext = () => {
     if (currentQuestionIndex < questions.length - 1) {
@@ -213,6 +294,12 @@ export default function HostGamePage() {
               </span>
             </div>
 
+            <div className="mb-4 flex justify-center">
+              <span className="text-lg font-mono text-cyber-pink">
+                {questionTimeRemaining}s LEFT
+              </span>
+            </div>
+
             <div className="mb-6">
               <div className="h-2 bg-cyber-bg-light rounded-full overflow-hidden mb-8">
                 <div
@@ -239,8 +326,7 @@ export default function HostGamePage() {
 
             <div className="flex justify-center">
               <button
-                onClick={lockQuestion}
-                disabled={answers.size === totalPlayers}
+                onClick={handleReveal}
                 className="px-8 py-3 font-semibold rounded-xl transition-all duration-300"
                 style={{
                   background:
@@ -260,11 +346,10 @@ export default function HostGamePage() {
                       ? "0 0 20px var(--cyber-lime-glow)"
                       : "0 0 20px var(--cyber-pink-glow)",
                   opacity: answers.size === totalPlayers ? 0.7 : 1,
-                  cursor:
-                    answers.size === totalPlayers ? "not-allowed" : "pointer",
+                  cursor: "pointer",
                 }}
               >
-                LOCK ANSWERS ({answers.size}/{totalPlayers})
+                REVEAL ANSWERS ({answers.size}/{totalPlayers})
               </button>
             </div>
           </div>

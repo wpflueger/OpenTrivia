@@ -28,7 +28,9 @@ export class HostWebRTCManager {
   private hostToken: string;
   private pollInterval: ReturnType<typeof setInterval> | null = null;
   private processedPlayers: Set<string> = new Set();
+  private processingPlayers: Set<string> = new Set();
   private onPlayerJoin?: (playerId: string, nickname?: string) => void;
+  private onPlayerReady?: (playerId: string) => void;
   private onPlayerLeave?: (playerId: string) => void;
   private onMessage?: (playerId: string, data: unknown) => void;
   private processedCandidates: Map<string, number> = new Map();
@@ -38,6 +40,7 @@ export class HostWebRTCManager {
     roomId: string;
     hostToken: string;
     onPlayerJoin?: (playerId: string, nickname?: string) => void;
+    onPlayerReady?: (playerId: string) => void;
     onPlayerLeave?: (playerId: string) => void;
     onMessage?: (playerId: string, data: unknown) => void;
   }) {
@@ -45,6 +48,7 @@ export class HostWebRTCManager {
     this.roomId = options.roomId;
     this.hostToken = options.hostToken;
     this.onPlayerJoin = options.onPlayerJoin;
+    this.onPlayerReady = options.onPlayerReady;
     this.onPlayerLeave = options.onPlayerLeave;
     this.onMessage = options.onMessage;
   }
@@ -78,9 +82,14 @@ export class HostWebRTCManager {
       const data = await response.json();
 
       if (data.players) {
-        for (const player of data.players) {
+        for (const player of data.players as Array<
+          PlayerInfo & { hasOffer: boolean }
+        >) {
           if (player.hasOffer && !this.processedPlayers.has(player.playerId)) {
-            await this.handleNewPlayer(player.playerId);
+            if (this.processingPlayers.has(player.playerId)) {
+              continue;
+            }
+            await this.handleNewPlayer(player.playerId, player.nickname);
           }
         }
       }
@@ -89,8 +98,11 @@ export class HostWebRTCManager {
     }
   }
 
-  private async handleNewPlayer(playerId: string): Promise<void> {
-    this.processedPlayers.add(playerId);
+  private async handleNewPlayer(
+    playerId: string,
+    nickname?: string,
+  ): Promise<void> {
+    this.processingPlayers.add(playerId);
 
     const connection = new RTCPeerConnection({
       iceServers: [{ urls: "stun:stun.l.google.com:19302" }],
@@ -134,10 +146,16 @@ export class HostWebRTCManager {
       }
     } catch (error) {
       console.error("Error handling new player:", error);
+      this.processingPlayers.delete(playerId);
+      this.connections.delete(playerId);
+      connection.close();
       return;
     }
 
-    this.onPlayerJoin?.(playerId);
+    this.processingPlayers.delete(playerId);
+    this.processedPlayers.add(playerId);
+
+    this.onPlayerJoin?.(playerId, nickname);
   }
 
   private async sendAnswer(
@@ -210,6 +228,7 @@ export class HostWebRTCManager {
     channel.onopen = () => {
       console.log(`Data channel open for ${playerId}`);
       this.dataChannels.set(playerId, channel);
+      this.onPlayerReady?.(playerId);
     };
 
     channel.onmessage = (event) => {
@@ -270,6 +289,7 @@ export class PlayerWebRTCManager {
   private signalingUrl: string;
   private roomId: string;
   private playerId: string;
+  private nickname: string;
   private pollInterval: ReturnType<typeof setInterval> | null = null;
   private processedCandidates: number = 0;
   private onMessage?: (data: unknown) => void;
@@ -280,6 +300,7 @@ export class PlayerWebRTCManager {
     signalingUrl: string;
     roomId: string;
     playerId: string;
+    nickname: string;
     onMessage?: (data: unknown) => void;
     onConnected?: () => void;
     onDisconnected?: () => void;
@@ -287,6 +308,7 @@ export class PlayerWebRTCManager {
     this.signalingUrl = options.signalingUrl;
     this.roomId = options.roomId;
     this.playerId = options.playerId;
+    this.nickname = options.nickname;
     this.onMessage = options.onMessage;
     this.onConnected = options.onConnected;
     this.onDisconnected = options.onDisconnected;
@@ -318,9 +340,31 @@ export class PlayerWebRTCManager {
     const offer = await this.connection.createOffer();
     await this.connection.setLocalDescription(offer);
 
-    await this.sendOffer(offer);
+    let offerSent = false;
+    for (let attempt = 0; attempt < 5; attempt++) {
+      try {
+        await this.sendOffer(offer);
+        offerSent = true;
+        break;
+      } catch (error) {
+        if (attempt === 4) {
+          console.error("Failed to send offer after retries:", error);
+        } else {
+          await this.delay(300);
+        }
+      }
+    }
+
+    if (!offerSent) {
+      this.onDisconnected?.();
+      return;
+    }
 
     this.pollInterval = setInterval(() => this.poll(), 500);
+  }
+
+  private delay(ms: number): Promise<void> {
+    return new Promise((resolve) => setTimeout(resolve, ms));
   }
 
   private async poll(): Promise<void> {
@@ -333,15 +377,23 @@ export class PlayerWebRTCManager {
   }
 
   private async sendOffer(offer: RTCSessionDescriptionInit): Promise<void> {
-    await fetch(`${this.signalingUrl}/api/session/${this.roomId}/offer`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        roomId: this.roomId,
-        playerId: this.playerId,
-        offer,
-      }),
-    });
+    const response = await fetch(
+      `${this.signalingUrl}/api/session/${this.roomId}/offer`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          roomId: this.roomId,
+          playerId: this.playerId,
+          nickname: this.nickname,
+          offer,
+        }),
+      },
+    );
+
+    if (!response.ok) {
+      throw new Error(`Failed to send offer: ${response.status}`);
+    }
   }
 
   private async sendCandidate(candidate: RTCIceCandidateInit): Promise<void> {

@@ -399,9 +399,10 @@ describe("Game Flow Integration Tests", () => {
     });
 
     it("should handle single player game", () => {
-      const singlePlayer = new Map([
-        ["player-1", { nickname: "Solo", score: 0, answers: [] }],
-      ]);
+      const singlePlayer = new Map<
+        string,
+        { nickname: string; score: number; answers: string[] }
+      >([["player-1", { nickname: "Solo", score: 0, answers: [] }]]);
 
       ctx.hostState.phase = "question";
       singlePlayer.get("player-1")!.answers = ["b"];
