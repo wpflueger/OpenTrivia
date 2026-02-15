@@ -1,7 +1,11 @@
 {
   "compilerOptions": {
     "target": "ES2017",
-    "lib": ["dom", "dom.iterable", "esnext"],
+    "lib": [
+      "dom",
+      "dom.iterable",
+      "esnext"
+    ],
     "allowJs": true,
     "skipLibCheck": true,
     "strict": true,
@@ -11,7 +15,7 @@
     "moduleResolution": "bundler",
     "resolveJsonModule": true,
     "isolatedModules": true,
-    "jsx": "preserve",
+    "jsx": "react-jsx",
     "incremental": true,
     "plugins": [
       {
@@ -19,10 +23,18 @@
       }
     ],
     "paths": {
-      "@/*": ["./src/*"],
-      "@/stores/*": ["./src/stores/*"],
-      "@opentriiva/protocol": ["./packages/protocol/src/index.ts"],
-      "@opentriiva/pack-schema": ["./packages/pack-schema/src/index.ts"]
+      "@/*": [
+        "./src/*"
+      ],
+      "@/stores/*": [
+        "./src/stores/*"
+      ],
+      "@opentriiva/protocol": [
+        "./packages/protocol/src/index.ts"
+      ],
+      "@opentriiva/pack-schema": [
+        "./packages/pack-schema/src/index.ts"
+      ]
     },
     "baseUrl": "."
   },
@@ -31,7 +43,10 @@
     "**/*.ts",
     "**/*.tsx",
     ".next/types/**/*.ts",
-    "packages/**/*"
+    "packages/**/*",
+    ".next/dev/types/**/*.ts"
   ],
-  "exclude": ["node_modules"]
+  "exclude": [
+    "node_modules"
+  ]
 }

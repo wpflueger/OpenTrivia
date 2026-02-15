@@ -1,73 +1,657 @@
 import { NextRequest, NextResponse } from "next/server";
-import fs from "fs";
-import path from "path";
 
-const QUIZZES_PATH = path.join(process.cwd(), "src", "data", "quizzes");
-
-interface Question {
-  id: string;
-  type: "mcq" | "boolean";
-  prompt: string;
-  choices: { id: string; text: string }[];
-  answer: { choiceId: string };
-  media?: { image?: string; audio?: string };
-}
-
-interface PackManifest {
-  schemaVersion: string;
-  title: string;
-  description: string;
-  author: string;
-  license: string;
-  rounds: { id: string; questions: { file: string }[] }[];
-}
+const QUIZZES: Record<string, { title: string; questions: unknown[] }> = {
+  science: {
+    title: "Science",
+    questions: [
+      {
+        id: "q1",
+        type: "mcq",
+        prompt: "What is the chemical symbol for water?",
+        choices: [
+          { id: "a", text: "H2O" },
+          { id: "b", text: "CO2" },
+          { id: "c", text: "NaCl" },
+          { id: "d", text: "O2" },
+        ],
+        answer: { choiceId: "a" },
+      },
+      {
+        id: "q2",
+        type: "mcq",
+        prompt: "What planet is closest to the Sun?",
+        choices: [
+          { id: "a", text: "Venus" },
+          { id: "b", text: "Mercury" },
+          { id: "c", text: "Earth" },
+          { id: "d", text: "Mars" },
+        ],
+        answer: { choiceId: "b" },
+      },
+      {
+        id: "q3",
+        type: "mcq",
+        prompt: "What is the hardest natural substance on Earth?",
+        choices: [
+          { id: "a", text: "Gold" },
+          { id: "b", text: "Iron" },
+          { id: "c", text: "Diamond" },
+          { id: "d", text: "Platinum" },
+        ],
+        answer: { choiceId: "c" },
+      },
+      {
+        id: "q4",
+        type: "boolean",
+        prompt: "Light travels faster than sound.",
+        choices: [
+          { id: "true", text: "True" },
+          { id: "false", text: "False" },
+        ],
+        answer: { choiceId: "true" },
+      },
+      {
+        id: "q5",
+        type: "mcq",
+        prompt: "How many bones are in the adult human body?",
+        choices: [
+          { id: "a", text: "186" },
+          { id: "b", text: "206" },
+          { id: "c", text: "226" },
+          { id: "d", text: "256" },
+        ],
+        answer: { choiceId: "b" },
+      },
+    ],
+  },
+  "general-knowledge": {
+    title: "General Knowledge",
+    questions: [
+      {
+        id: "gk1",
+        type: "mcq",
+        prompt: "What is the capital of France?",
+        choices: [
+          { id: "a", text: "London" },
+          { id: "b", text: "Paris" },
+          { id: "c", text: "Berlin" },
+          { id: "d", text: "Madrid" },
+        ],
+        answer: { choiceId: "b" },
+      },
+      {
+        id: "gk2",
+        type: "mcq",
+        prompt: "Which planet is known as the Red Planet?",
+        choices: [
+          { id: "a", text: "Venus" },
+          { id: "b", text: "Mars" },
+          { id: "c", text: "Jupiter" },
+          { id: "d", text: "Saturn" },
+        ],
+        answer: { choiceId: "b" },
+      },
+      {
+        id: "gk3",
+        type: "mcq",
+        prompt: "What is the largest ocean on Earth?",
+        choices: [
+          { id: "a", text: "Atlantic" },
+          { id: "b", text: "Indian" },
+          { id: "c", text: "Pacific" },
+          { id: "d", text: "Arctic" },
+        ],
+        answer: { choiceId: "c" },
+      },
+      {
+        id: "gk4",
+        type: "boolean",
+        prompt:
+          "The Great Wall of China is visible from space with the naked eye.",
+        choices: [
+          { id: "true", text: "True" },
+          { id: "false", text: "False" },
+        ],
+        answer: { choiceId: "false" },
+      },
+      {
+        id: "gk5",
+        type: "mcq",
+        prompt: "Who painted the Mona Lisa?",
+        choices: [
+          { id: "a", text: "Michelangelo" },
+          { id: "b", text: "Vincent van Gogh" },
+          { id: "c", text: "Leonardo da Vinci" },
+          { id: "d", text: "Pablo Picasso" },
+        ],
+        answer: { choiceId: "c" },
+      },
+    ],
+  },
+  history: {
+    title: "History",
+    questions: [
+      {
+        id: "h1",
+        type: "mcq",
+        prompt: "In what year did World War II end?",
+        choices: [
+          { id: "a", text: "1943" },
+          { id: "b", text: "1944" },
+          { id: "c", text: "1945" },
+          { id: "d", text: "1946" },
+        ],
+        answer: { choiceId: "c" },
+      },
+      {
+        id: "h2",
+        type: "mcq",
+        prompt: "Who was the first President of the United States?",
+        choices: [
+          { id: "a", text: "Thomas Jefferson" },
+          { id: "b", text: "John Adams" },
+          { id: "c", text: "George Washington" },
+          { id: "d", text: "Benjamin Franklin" },
+        ],
+        answer: { choiceId: "c" },
+      },
+      {
+        id: "h3",
+        type: "mcq",
+        prompt: "The ancient city of Rome was built on how many hills?",
+        choices: [
+          { id: "a", text: "5" },
+          { id: "b", text: "6" },
+          { id: "c", text: "7" },
+          { id: "d", text: "8" },
+        ],
+        answer: { choiceId: "c" },
+      },
+      {
+        id: "h4",
+        type: "boolean",
+        prompt: "The Titanic sank in 1912.",
+        choices: [
+          { id: "true", text: "True" },
+          { id: "false", text: "False" },
+        ],
+        answer: { choiceId: "true" },
+      },
+      {
+        id: "h5",
+        type: "mcq",
+        prompt: "Which empire was ruled by Julius Caesar?",
+        choices: [
+          { id: "a", text: "Greek Empire" },
+          { id: "b", text: "Persian Empire" },
+          { id: "c", text: "Roman Empire" },
+          { id: "d", text: "Ottoman Empire" },
+        ],
+        answer: { choiceId: "c" },
+      },
+    ],
+  },
+  sports: {
+    title: "Sports",
+    questions: [
+      {
+        id: "s1",
+        type: "mcq",
+        prompt:
+          "How many players are on a basketball team on the court at one time?",
+        choices: [
+          { id: "a", text: "4" },
+          { id: "b", text: "5" },
+          { id: "c", text: "6" },
+          { id: "d", text: "7" },
+        ],
+        answer: { choiceId: "b" },
+      },
+      {
+        id: "s2",
+        type: "mcq",
+        prompt: "In which sport would you perform a slam dunk?",
+        choices: [
+          { id: "a", text: "Football" },
+          { id: "b", text: "Basketball" },
+          { id: "c", text: "Tennis" },
+          { id: "d", text: "Golf" },
+        ],
+        answer: { choiceId: "b" },
+      },
+      {
+        id: "s3",
+        type: "mcq",
+        prompt: "How many rings are on the Olympic flag?",
+        choices: [
+          { id: "a", text: "3" },
+          { id: "b", text: "4" },
+          { id: "c", text: "5" },
+          { id: "d", text: "6" },
+        ],
+        answer: { choiceId: "c" },
+      },
+      {
+        id: "s4",
+        type: "boolean",
+        prompt: "A marathon is exactly 26.2 miles.",
+        choices: [
+          { id: "true", text: "True" },
+          { id: "false", text: "False" },
+        ],
+        answer: { choiceId: "true" },
+      },
+      {
+        id: "s5",
+        type: "mcq",
+        prompt: "Which country won the 2018 FIFA World Cup?",
+        choices: [
+          { id: "a", text: "Brazil" },
+          { id: "b", text: "Germany" },
+          { id: "c", text: "France" },
+          { id: "d", text: "Argentina" },
+        ],
+        answer: { choiceId: "c" },
+      },
+    ],
+  },
+  geography: {
+    title: "Geography",
+    questions: [
+      {
+        id: "g1",
+        type: "mcq",
+        prompt: "What is the largest country in the world by area?",
+        choices: [
+          { id: "a", text: "Canada" },
+          { id: "b", text: "China" },
+          { id: "c", text: "United States" },
+          { id: "d", text: "Russia" },
+        ],
+        answer: { choiceId: "d" },
+      },
+      {
+        id: "g2",
+        type: "mcq",
+        prompt: "Which river is the longest in the world?",
+        choices: [
+          { id: "a", text: "Amazon" },
+          { id: "b", text: "Nile" },
+          { id: "c", text: "Yangtze" },
+          { id: "d", text: "Mississippi" },
+        ],
+        answer: { choiceId: "b" },
+      },
+      {
+        id: "g3",
+        type: "mcq",
+        prompt: "What is the capital of Australia?",
+        choices: [
+          { id: "a", text: "Sydney" },
+          { id: "b", text: "Melbourne" },
+          { id: "c", text: "Canberra" },
+          { id: "d", text: "Perth" },
+        ],
+        answer: { choiceId: "c" },
+      },
+      {
+        id: "g4",
+        type: "boolean",
+        prompt: "Mount Everest is the tallest mountain in the world.",
+        choices: [
+          { id: "true", text: "True" },
+          { id: "false", text: "False" },
+        ],
+        answer: { choiceId: "true" },
+      },
+      {
+        id: "g5",
+        type: "mcq",
+        prompt: "Which desert is the largest in the world?",
+        choices: [
+          { id: "a", text: "Gobi" },
+          { id: "b", text: "Kalahari" },
+          { id: "c", text: "Sahara" },
+          { id: "d", text: "Arabian" },
+        ],
+        answer: { choiceId: "c" },
+      },
+    ],
+  },
+  music: {
+    title: "Music",
+    questions: [
+      {
+        id: "m1",
+        type: "mcq",
+        prompt: "Who is known as the King of Pop?",
+        choices: [
+          { id: "a", text: "Elvis Presley" },
+          { id: "b", text: "Michael Jackson" },
+          { id: "c", text: "Prince" },
+          { id: "d", text: "Freddie Mercury" },
+        ],
+        answer: { choiceId: "b" },
+      },
+      {
+        id: "m2",
+        type: "mcq",
+        prompt: "How many strings does a standard guitar have?",
+        choices: [
+          { id: "a", text: "4" },
+          { id: "b", text: "5" },
+          { id: "c", text: "6" },
+          { id: "d", text: "7" },
+        ],
+        answer: { choiceId: "c" },
+      },
+      {
+        id: "m3",
+        type: "mcq",
+        prompt: "Which composer became deaf?",
+        choices: [
+          { id: "a", text: "Mozart" },
+          { id: "b", text: "Beethoven" },
+          { id: "c", text: "Bach" },
+          { id: "d", text: "Chopin" },
+        ],
+        answer: { choiceId: "b" },
+      },
+      {
+        id: "m4",
+        type: "boolean",
+        prompt: "Jazz originated in New Orleans.",
+        choices: [
+          { id: "true", text: "True" },
+          { id: "false", text: "False" },
+        ],
+        answer: { choiceId: "true" },
+      },
+      {
+        id: "m5",
+        type: "mcq",
+        prompt: "Which band performed Bohemian Rhapsody?",
+        choices: [
+          { id: "a", text: "The Beatles" },
+          { id: "b", text: "Led Zeppelin" },
+          { id: "c", text: "Queen" },
+          { id: "d", text: "Pink Floyd" },
+        ],
+        answer: { choiceId: "c" },
+      },
+    ],
+  },
+  movies: {
+    title: "Movies",
+    questions: [
+      {
+        id: "mov1",
+        type: "mcq",
+        prompt: "Which movie won the first Academy Award for Best Picture?",
+        choices: [
+          { id: "a", text: "The Jazz Singer" },
+          { id: "b", text: "Wings" },
+          { id: "c", text: "Sunrise" },
+          { id: "d", text: "Ben-Hur" },
+        ],
+        answer: { choiceId: "b" },
+      },
+      {
+        id: "mov2",
+        type: "mcq",
+        prompt: "Who directed Jurassic Park?",
+        choices: [
+          { id: "a", text: "James Cameron" },
+          { id: "b", text: "Steven Spielberg" },
+          { id: "c", text: "George Lucas" },
+          { id: "d", text: "Ridley Scott" },
+        ],
+        answer: { choiceId: "b" },
+      },
+      {
+        id: "mov3",
+        type: "mcq",
+        prompt: "What is the highest-grossing film of all time?",
+        choices: [
+          { id: "a", text: "Titanic" },
+          { id: "b", text: "Avatar" },
+          { id: "c", text: "Avengers: Endgame" },
+          { id: "d", text: "Star Wars" },
+        ],
+        answer: { choiceId: "b" },
+      },
+      {
+        id: "mov4",
+        type: "boolean",
+        prompt: "The first Pixar movie was Toy Story.",
+        choices: [
+          { id: "true", text: "True" },
+          { id: "false", text: "False" },
+        ],
+        answer: { choiceId: "true" },
+      },
+      {
+        id: "mov5",
+        type: "mcq",
+        prompt: "Which actor played Iron Man in the MCU?",
+        choices: [
+          { id: "a", text: "Chris Evans" },
+          { id: "b", text: "Robert Downey Jr." },
+          { id: "c", text: "Chris Hemsworth" },
+          { id: "d", text: "Mark Ruffalo" },
+        ],
+        answer: { choiceId: "b" },
+      },
+    ],
+  },
+  food: {
+    title: "Food & Cuisine",
+    questions: [
+      {
+        id: "f1",
+        type: "mcq",
+        prompt: "Which country is known for inventing pizza?",
+        choices: [
+          { id: "a", text: "France" },
+          { id: "b", text: "Italy" },
+          { id: "c", text: "Greece" },
+          { id: "d", text: "Spain" },
+        ],
+        answer: { choiceId: "b" },
+      },
+      {
+        id: "f2",
+        type: "mcq",
+        prompt: "What is the main ingredient in guacamole?",
+        choices: [
+          { id: "a", text: "Tomato" },
+          { id: "b", text: "Avocado" },
+          { id: "c", text: "Onion" },
+          { id: "d", text: "Pepper" },
+        ],
+        answer: { choiceId: "b" },
+      },
+      {
+        id: "f3",
+        type: "mcq",
+        prompt: "Sushi originated in which country?",
+        choices: [
+          { id: "a", text: "China" },
+          { id: "b", text: "Japan" },
+          { id: "c", text: "Korea" },
+          { id: "d", text: "Thailand" },
+        ],
+        answer: { choiceId: "b" },
+      },
+      {
+        id: "f4",
+        type: "boolean",
+        prompt: "Chocolate is made from cacao beans.",
+        choices: [
+          { id: "true", text: "True" },
+          { id: "false", text: "False" },
+        ],
+        answer: { choiceId: "true" },
+      },
+      {
+        id: "f5",
+        type: "mcq",
+        prompt: "What pasta is shaped like small rice grains?",
+        choices: [
+          { id: "a", text: "Penne" },
+          { id: "b", text: "Orzo" },
+          { id: "c", text: "Fusilli" },
+          { id: "d", text: "Rigatoni" },
+        ],
+        answer: { choiceId: "b" },
+      },
+    ],
+  },
+  animals: {
+    title: "Animals",
+    questions: [
+      {
+        id: "a1",
+        type: "mcq",
+        prompt: "What is the fastest land animal?",
+        choices: [
+          { id: "a", text: "Cheetah" },
+          { id: "b", text: "Lion" },
+          { id: "c", text: "Gazelle" },
+          { id: "d", text: "Leopard" },
+        ],
+        answer: { choiceId: "a" },
+      },
+      {
+        id: "a2",
+        type: "mcq",
+        prompt: "How many hearts does an octopus have?",
+        choices: [
+          { id: "a", text: "1" },
+          { id: "b", text: "2" },
+          { id: "c", text: "3" },
+          { id: "d", text: "4" },
+        ],
+        answer: { choiceId: "c" },
+      },
+      {
+        id: "a3",
+        type: "mcq",
+        prompt: "Which animal is known as the Ship of the Desert?",
+        choices: [
+          { id: "a", text: "Horse" },
+          { id: "b", text: "Elephant" },
+          { id: "c", text: "Camel" },
+          { id: "d", text: "Donkey" },
+        ],
+        answer: { choiceId: "c" },
+      },
+      {
+        id: "a4",
+        type: "boolean",
+        prompt: "Bats are the only mammals that can truly fly.",
+        choices: [
+          { id: "true", text: "True" },
+          { id: "false", text: "False" },
+        ],
+        answer: { choiceId: "true" },
+      },
+      {
+        id: "a5",
+        type: "mcq",
+        prompt: "What is the largest mammal in the world?",
+        choices: [
+          { id: "a", text: "African Elephant" },
+          { id: "b", text: "Blue Whale" },
+          { id: "c", text: "Giraffe" },
+          { id: "d", text: "Hippopotamus" },
+        ],
+        answer: { choiceId: "b" },
+      },
+    ],
+  },
+  technology: {
+    title: "Technology",
+    questions: [
+      {
+        id: "t1",
+        type: "mcq",
+        prompt: "Who founded Microsoft?",
+        choices: [
+          { id: "a", text: "Steve Jobs" },
+          { id: "b", text: "Bill Gates" },
+          { id: "c", text: "Mark Zuckerberg" },
+          { id: "d", text: "Elon Musk" },
+        ],
+        answer: { choiceId: "b" },
+      },
+      {
+        id: "t2",
+        type: "mcq",
+        prompt: "What does HTML stand for?",
+        choices: [
+          { id: "a", text: "Hyper Text Markup Language" },
+          { id: "b", text: "High Tech Modern Language" },
+          { id: "c", text: "Home Tool Markup Language" },
+          { id: "d", text: "Hyperlinks Text Mark Language" },
+        ],
+        answer: { choiceId: "a" },
+      },
+      {
+        id: "t3",
+        type: "mcq",
+        prompt: "In what year was the first iPhone released?",
+        choices: [
+          { id: "a", text: "2005" },
+          { id: "b", text: "2006" },
+          { id: "c", text: "2007" },
+          { id: "d", text: "2008" },
+        ],
+        answer: { choiceId: "c" },
+      },
+      {
+        id: "t4",
+        type: "boolean",
+        prompt: "Java and JavaScript are the same programming language.",
+        choices: [
+          { id: "true", text: "True" },
+          { id: "false", text: "False" },
+        ],
+        answer: { choiceId: "false" },
+      },
+      {
+        id: "t5",
+        type: "mcq",
+        prompt: "What company developed the Android operating system?",
+        choices: [
+          { id: "a", text: "Apple" },
+          { id: "b", text: "Microsoft" },
+          { id: "c", text: "Google" },
+          { id: "d", text: "Samsung" },
+        ],
+        answer: { choiceId: "c" },
+      },
+    ],
+  },
+};
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { packId: string } },
+  { params }: { params: Promise<{ packId: string }> },
 ) {
   try {
-    const packId = params.packId;
-    const packPath = path.join(QUIZZES_PATH, packId, "pack.json");
+    const { packId } = await params;
+    const quiz = QUIZZES[packId];
 
-    if (!fs.existsSync(packPath)) {
+    if (!quiz) {
       return NextResponse.json({ error: "Pack not found" }, { status: 404 });
     }
 
-    const manifestContent = fs.readFileSync(packPath, "utf-8");
-    const manifest: PackManifest = JSON.parse(manifestContent);
-
-    const questions: Question[] = [];
-
-    for (const round of manifest.rounds) {
-      for (const questionRef of round.questions) {
-        const questionPath = path.join(QUIZZES_PATH, packId, questionRef.file);
-
-        if (fs.existsSync(questionPath)) {
-          const questionContent = fs.readFileSync(questionPath, "utf-8");
-          const parsed = JSON.parse(questionContent);
-
-          if (Array.isArray(parsed)) {
-            questions.push(...parsed);
-          } else {
-            questions.push(parsed);
-          }
-        }
-      }
-    }
-
     return NextResponse.json({
-      title: manifest.title,
-      author: manifest.author,
-      questionCount: questions.length,
-      questions: questions.map((q) => ({
-        id: q.id,
-        type: q.type,
-        prompt: q.prompt,
-        choices: q.choices,
-        answer: { choiceId: q.answer.choiceId },
-        media: q.media,
-      })),
+      title: quiz.title,
+      author: "OpenTrivia",
+      questionCount: quiz.questions.length,
+      questions: quiz.questions,
     });
   } catch (error) {
     console.error("Local pack load error:", error);
