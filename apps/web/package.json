@@ -13,8 +13,8 @@
     "test:coverage": "vitest run --coverage"
   },
   "dependencies": {
-    "@opentriiva/pack-schema": "file:./packages/pack-schema",
-    "@opentriiva/protocol": "file:./packages/protocol",
+    "@opentriiva/pack-schema": "file:../packages/pack-schema",
+    "@opentriiva/protocol": "file:../packages/protocol",
     "@vercel/kv": "^3.0.0",
     "ioredis": "^5.9.3",
     "next": "latest",

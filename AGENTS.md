@@ -13,11 +13,11 @@ OpenTrivia is a P2P trivia game platform (open alternative to Kahoot) with:
 ## Tech Stack
 
 - **Runtime**: Bun
-- **Framework**: Next.js 14+ (App Router)
+- **Framework**: Next.js 16 (App Router)
 - **Language**: TypeScript (strict mode)
 - **UI**: React + Tailwind CSS
 - **State**: Zustand
-- **Testing**: Vitest
+- **Testing**: Vitest (unit), Playwright (E2E)
 
 ## Repository Structure
 
@@ -26,6 +26,7 @@ apps/web/              # Next.js orchestrator + host/player clients
 packages/
   protocol/            # Message types, validators
   pack-schema/         # JSON schema, loader
+tests/                 # E2E tests (Playwright)
 ```
 
 ## Build / Lint / Test Commands
@@ -46,7 +47,7 @@ bun run lint
 # Format code
 bun run format
 
-# Run all tests
+# Run all unit tests
 bun test
 
 # Run tests in watch mode
@@ -59,6 +60,10 @@ cd packages/pack-schema && bun test src/validator.test.ts
 # Or run all tests in a specific package
 bun test --filter=protocol
 bun test --filter=pack-schema
+
+# Run E2E tests (requires dev server running)
+cd tests && python3 test_vercel.py
+python3 tests/test_complete_game.py
 ```
 
 ## Code Style Guidelines
