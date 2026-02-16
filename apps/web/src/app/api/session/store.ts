@@ -41,6 +41,7 @@ function getRedis(): Redis | null {
 
 interface PlayerConnection {
   playerId: string;
+  playerToken: string;
   nickname?: string;
   offer?: RTCSessionDescriptionInit;
   answer?: RTCSessionDescriptionInit;
@@ -67,6 +68,10 @@ function generateToken(): string {
   return token;
 }
 
+function generatePlayerToken(): string {
+  return generateToken();
+}
+
 function generateRoomId(): string {
   const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
   let result = "";
@@ -89,9 +94,29 @@ function serializeSession(session: Session): string {
 function deserializeSession(data: string): Session | null {
   try {
     const obj = JSON.parse(data);
+
+    const players = new Map<string, PlayerConnection>(
+      (obj.players as [string, Partial<PlayerConnection>][])?.map(
+        ([playerId, player]) => [
+          playerId,
+          {
+            playerId,
+            playerToken: player.playerToken || generatePlayerToken(),
+            nickname: player.nickname,
+            offer: player.offer,
+            answer: player.answer,
+            candidates: Array.isArray(player.candidates)
+              ? player.candidates
+              : [],
+            createdAt: player.createdAt || Date.now(),
+          },
+        ],
+      ) || [],
+    );
+
     return {
       ...obj,
-      players: new Map(obj.players),
+      players,
     };
   } catch {
     return null;
@@ -149,18 +174,23 @@ export async function setPlayerOffer(
   playerId: string,
   nickname: string | undefined,
   offer: RTCSessionDescriptionInit,
-): Promise<void> {
+): Promise<string | undefined> {
   const session = await getSession(roomId);
-  if (!session) return;
+  if (!session) return undefined;
 
   let player = session.players.get(playerId);
   if (!player) {
     player = {
       playerId,
+      playerToken: generatePlayerToken(),
       createdAt: Date.now(),
       candidates: [],
     };
     session.players.set(playerId, player);
+  }
+
+  if (!player) {
+    return undefined;
   }
   if (nickname) {
     player.nickname = nickname;
@@ -168,6 +198,8 @@ export async function setPlayerOffer(
   player.offer = offer;
 
   await saveSession(session);
+
+  return player.playerToken;
 }
 
 export async function setPlayerAnswer(
@@ -197,6 +229,7 @@ export async function addCandidate(
   if (!player) {
     player = {
       playerId,
+      playerToken: generatePlayerToken(),
       createdAt: Date.now(),
       candidates: [],
     };

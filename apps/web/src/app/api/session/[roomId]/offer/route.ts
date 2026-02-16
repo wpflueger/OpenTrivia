@@ -5,6 +5,7 @@ import {
   getPlayerList,
   getPlayer,
 } from "../../store";
+import { isRateLimited } from "../../../_lib/rate-limit";
 
 interface RouteParams {
   params: Promise<{ roomId: string }>;
@@ -14,7 +15,18 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
   try {
     const { roomId } = await params;
     const body = await request.json();
-    const { playerId, nickname, offer, hostToken } = body;
+    const { playerId, playerToken, nickname, offer, hostToken } = body;
+
+    if (
+      isRateLimited(
+        request,
+        `session:offer:post:${roomId}:${playerId || "new"}`,
+        300,
+        60_000,
+      )
+    ) {
+      return NextResponse.json({ error: "Too many requests" }, { status: 429 });
+    }
 
     if (!roomId || !offer) {
       return NextResponse.json(
@@ -37,9 +49,30 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     }
 
     const actualPlayerId = playerId || crypto.randomUUID();
-    await setPlayerOffer(roomId, actualPlayerId, nickname, offer);
+    const existingPlayer = await getPlayer(roomId, actualPlayerId);
+    if (
+      existingPlayer &&
+      !hostToken &&
+      playerToken !== existingPlayer.playerToken
+    ) {
+      return NextResponse.json(
+        { error: "Invalid player token" },
+        { status: 403 },
+      );
+    }
 
-    return NextResponse.json({ success: true, playerId: actualPlayerId });
+    const newPlayerToken = await setPlayerOffer(
+      roomId,
+      actualPlayerId,
+      nickname,
+      offer,
+    );
+
+    return NextResponse.json({
+      success: true,
+      playerId: actualPlayerId,
+      playerToken: newPlayerToken,
+    });
   } catch (error) {
     console.error("Offer error:", error);
     return NextResponse.json({ error: "Failed to set offer" }, { status: 500 });
@@ -50,7 +83,20 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
   const { roomId } = await params;
   const { searchParams } = new URL(request.url);
   const playerId = searchParams.get("playerId");
+  const playerToken = searchParams.get("playerToken");
   const hostToken = searchParams.get("hostToken");
+
+  const scopeSuffix = playerId || hostToken || "list";
+  if (
+    isRateLimited(
+      request,
+      `session:offer:get:${roomId}:${scopeSuffix}`,
+      600,
+      60_000,
+    )
+  ) {
+    return NextResponse.json({ error: "Too many requests" }, { status: 429 });
+  }
 
   if (!roomId) {
     return NextResponse.json({ error: "roomId is required" }, { status: 400 });
@@ -71,6 +117,14 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
     if (!player) {
       return NextResponse.json({ error: "Player not found" }, { status: 404 });
     }
+
+    if (hostToken !== session.hostToken && playerToken !== player.playerToken) {
+      return NextResponse.json(
+        { error: "Invalid player token" },
+        { status: 403 },
+      );
+    }
+
     return NextResponse.json({ offer: player.offer });
   }
 

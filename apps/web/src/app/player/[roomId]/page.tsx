@@ -86,6 +86,12 @@ function PlayerGameContent() {
         : "";
 
     if (playerId && nickname && roomId) {
+      const authStorageKey = `playerToken:${roomId}:${playerId}`;
+      const storedPlayerToken =
+        typeof window !== "undefined"
+          ? sessionStorage.getItem(authStorageKey) || undefined
+          : undefined;
+
       setState((prev) => ({
         ...prev,
         playerId,
@@ -102,7 +108,14 @@ function PlayerGameContent() {
         signalingUrl,
         roomId,
         playerId,
+        playerToken: storedPlayerToken,
         nickname: decodeURIComponent(nickname),
+        onAuth: (resolvedPlayerId, resolvedPlayerToken) => {
+          if (typeof window !== "undefined") {
+            const key = `playerToken:${roomId}:${resolvedPlayerId}`;
+            sessionStorage.setItem(key, resolvedPlayerToken);
+          }
+        },
         onMessage: (data: unknown) => {
           const msg = data as {
             type: string;

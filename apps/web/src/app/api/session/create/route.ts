@@ -1,8 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createSession, getSession, getPlayerList } from "../store";
+import { isRateLimited } from "../../_lib/rate-limit";
 
 export async function POST(request: NextRequest) {
   try {
+    if (isRateLimited(request, "session:create", 30, 60_000)) {
+      return NextResponse.json({ error: "Too many requests" }, { status: 429 });
+    }
+
     const { roomId, hostToken } = await createSession();
 
     return NextResponse.json({ roomId, hostToken });
@@ -33,7 +38,6 @@ export async function GET(request: NextRequest) {
 
   return NextResponse.json({
     roomId: session.roomId,
-    hostToken: session.hostToken,
     players: playerList,
   });
 }

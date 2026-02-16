@@ -297,9 +297,11 @@ export class PlayerWebRTCManager {
   private signalingUrl: string;
   private roomId: string;
   private playerId: string;
+  private playerToken?: string;
   private nickname: string;
   private pollInterval: ReturnType<typeof setInterval> | null = null;
   private processedCandidates: number = 0;
+  private pendingLocalCandidates: RTCIceCandidateInit[] = [];
   private onMessage?: (data: unknown) => void;
   private onConnected?: () => void;
   private onDisconnected?: () => void;
@@ -308,7 +310,9 @@ export class PlayerWebRTCManager {
     signalingUrl: string;
     roomId: string;
     playerId: string;
+    playerToken?: string;
     nickname: string;
+    onAuth?: (playerId: string, playerToken: string) => void;
     onMessage?: (data: unknown) => void;
     onConnected?: () => void;
     onDisconnected?: () => void;
@@ -316,11 +320,15 @@ export class PlayerWebRTCManager {
     this.signalingUrl = options.signalingUrl;
     this.roomId = options.roomId;
     this.playerId = options.playerId;
+    this.playerToken = options.playerToken;
     this.nickname = options.nickname;
+    this.onAuth = options.onAuth;
     this.onMessage = options.onMessage;
     this.onConnected = options.onConnected;
     this.onDisconnected = options.onDisconnected;
   }
+
+  private onAuth?: (playerId: string, playerToken: string) => void;
 
   async connect(): Promise<void> {
     this.stopPolling();
@@ -329,6 +337,7 @@ export class PlayerWebRTCManager {
     this.dataChannel = null;
     this.connection = null;
     this.processedCandidates = 0;
+    this.pendingLocalCandidates = [];
 
     this.connection = new RTCPeerConnection({
       iceServers: [{ urls: "stun:stun.l.google.com:19302" }],
@@ -336,7 +345,7 @@ export class PlayerWebRTCManager {
 
     this.connection.onicecandidate = (event) => {
       if (event.candidate) {
-        this.sendCandidate(event.candidate);
+        this.handleLocalCandidate(event.candidate);
       }
     };
 
@@ -358,7 +367,15 @@ export class PlayerWebRTCManager {
     let offerSent = false;
     for (let attempt = 0; attempt < 5; attempt++) {
       try {
-        await this.sendOffer(offer);
+        const auth = await this.sendOffer(offer);
+        if (auth.playerId) {
+          this.playerId = auth.playerId;
+        }
+        if (auth.playerToken) {
+          this.playerToken = auth.playerToken;
+          this.onAuth?.(this.playerId, auth.playerToken);
+          this.flushPendingLocalCandidates();
+        }
         offerSent = true;
         break;
       } catch (error) {
@@ -398,7 +415,9 @@ export class PlayerWebRTCManager {
     }
   }
 
-  private async sendOffer(offer: RTCSessionDescriptionInit): Promise<void> {
+  private async sendOffer(
+    offer: RTCSessionDescriptionInit,
+  ): Promise<{ playerId?: string; playerToken?: string }> {
     const response = await fetch(
       `${this.signalingUrl}/api/session/${this.roomId}/offer`,
       {
@@ -407,6 +426,7 @@ export class PlayerWebRTCManager {
         body: JSON.stringify({
           roomId: this.roomId,
           playerId: this.playerId,
+          playerToken: this.playerToken,
           nickname: this.nickname,
           offer,
         }),
@@ -416,24 +436,59 @@ export class PlayerWebRTCManager {
     if (!response.ok) {
       throw new Error(`Failed to send offer: ${response.status}`);
     }
+
+    return (await response.json()) as {
+      playerId?: string;
+      playerToken?: string;
+    };
   }
 
   private async sendCandidate(candidate: RTCIceCandidateInit): Promise<void> {
+    if (!this.playerToken) {
+      return;
+    }
+
     await fetch(`${this.signalingUrl}/api/session/${this.roomId}/candidate`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         roomId: this.roomId,
         playerId: this.playerId,
+        playerToken: this.playerToken,
         candidate,
       }),
     });
   }
 
+  private handleLocalCandidate(candidate: RTCIceCandidateInit): void {
+    if (!this.playerToken) {
+      this.pendingLocalCandidates.push(candidate);
+      return;
+    }
+
+    this.sendCandidate(candidate);
+  }
+
+  private flushPendingLocalCandidates(): void {
+    if (!this.playerToken || this.pendingLocalCandidates.length === 0) {
+      return;
+    }
+
+    const pending = [...this.pendingLocalCandidates];
+    this.pendingLocalCandidates = [];
+    pending.forEach((candidate) => {
+      this.sendCandidate(candidate);
+    });
+  }
+
   private async checkForAnswer(): Promise<void> {
     try {
+      if (!this.playerToken) {
+        return;
+      }
+
       const response = await fetch(
-        `${this.signalingUrl}/api/session/${this.roomId}/answer?playerId=${this.playerId}`,
+        `${this.signalingUrl}/api/session/${this.roomId}/answer?playerId=${this.playerId}&playerToken=${this.playerToken}`,
       );
       const data = await response.json();
 
@@ -450,13 +505,13 @@ export class PlayerWebRTCManager {
   }
 
   private async checkForCandidates(): Promise<void> {
-    if (!this.connection?.remoteDescription) {
+    if (!this.connection?.remoteDescription || !this.playerToken) {
       return;
     }
 
     try {
       const response = await fetch(
-        `${this.signalingUrl}/api/session/${this.roomId}/candidate?playerId=${this.playerId}&afterIndex=${this.processedCandidates}`,
+        `${this.signalingUrl}/api/session/${this.roomId}/candidate?playerId=${this.playerId}&playerToken=${this.playerToken}&afterIndex=${this.processedCandidates}`,
       );
       const data = await response.json();
 
@@ -512,5 +567,6 @@ export class PlayerWebRTCManager {
     this.dataChannel = null;
     this.connection = null;
     this.processedCandidates = 0;
+    this.pendingLocalCandidates = [];
   }
 }
