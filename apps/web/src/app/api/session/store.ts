@@ -6,8 +6,11 @@ function getRedis(): Redis | null {
   if (redis) return redis;
 
   const redisUrl = process.env.REDIS_URL;
-  console.log("Redis URL present:", !!redisUrl, redisUrl ? "yes" : "no");
-  if (redisUrl) {
+  const useRedisInDev = process.env.ENABLE_REDIS_IN_DEV === "true";
+  const shouldUseRedis =
+    !!redisUrl && (process.env.NODE_ENV === "production" || useRedisInDev);
+
+  if (shouldUseRedis && redisUrl) {
     try {
       redis = new Redis(redisUrl, {
         retryStrategy: (times) => {
@@ -26,7 +29,13 @@ function getRedis(): Redis | null {
       return null;
     }
   }
-  console.log("No Redis URL found, using in-memory");
+
+  if (redisUrl && process.env.NODE_ENV !== "production" && !useRedisInDev) {
+    console.log("Redis configured but disabled in dev, using in-memory");
+  } else {
+    console.log("No Redis URL found, using in-memory");
+  }
+
   return null;
 }
 

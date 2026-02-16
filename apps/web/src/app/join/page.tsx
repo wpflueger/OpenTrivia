@@ -38,15 +38,15 @@ function JoinContent() {
   };
 
   return (
-    <div className="max-w-lg mx-auto">
-      <div className="bg-white rounded-2xl shadow-xl p-8">
-        <h1 className="text-3xl font-bold text-gray-900 mb-6">Join a Game</h1>
+    <div className="max-w-lg mx-auto relative z-10">
+      <div className="cyber-card rounded-2xl p-8">
+        <h1 className="text-3xl font-bold cyber-glow-text mb-6">JOIN GAME</h1>
 
         <div className="space-y-6">
           <div>
             <label
               htmlFor="roomCode"
-              className="block text-sm font-medium text-gray-700 mb-2"
+              className="block text-sm font-medium text-cyber-white mb-2"
             >
               Room Code
             </label>
@@ -57,14 +57,14 @@ function JoinContent() {
               value={roomCode}
               onChange={(e) => setRoomCode(e.target.value.toUpperCase())}
               maxLength={6}
-              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent text-center text-2xl tracking-widest font-mono"
+              className="cyber-input text-center text-2xl tracking-widest font-mono"
             />
           </div>
 
           <div>
             <label
               htmlFor="nickname"
-              className="block text-sm font-medium text-gray-700 mb-2"
+              className="block text-sm font-medium text-cyber-white mb-2"
             >
               Your Nickname
             </label>
@@ -75,22 +75,22 @@ function JoinContent() {
               value={nickname}
               onChange={(e) => setNickname(e.target.value)}
               maxLength={20}
-              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+              className="cyber-input"
             />
           </div>
 
           {error && (
-            <div className="p-4 bg-red-50 border border-red-200 rounded-lg text-red-700">
-              {error}
+            <div className="p-4 rounded-lg border border-cyber-pink bg-cyber-pink/10 text-cyber-pink font-mono text-sm">
+              ERROR: {error}
             </div>
           )}
 
           <button
             onClick={handleJoin}
             disabled={isLoading || !roomCode || !nickname}
-            className="w-full py-4 bg-primary-600 text-white text-lg font-semibold rounded-xl shadow-lg hover:bg-primary-700 disabled:opacity-50 transition-colors"
+            className="cyber-button w-full py-4 text-lg font-semibold rounded-xl"
           >
-            {isLoading ? "Joining..." : "Join Game"}
+            {isLoading ? "JOINING..." : "JOIN GAME"}
           </button>
         </div>
       </div>
@@ -100,9 +100,9 @@ function JoinContent() {
 
 function LoadingState() {
   return (
-    <div className="flex flex-col items-center justify-center min-h-[60vh]">
-      <div className="animate-spin rounded-full h-16 w-16 border-4 border-primary-600 border-t-transparent"></div>
-      <p className="mt-4 text-xl text-gray-600">Loading...</p>
+    <div className="flex flex-col items-center justify-center min-h-[60vh] relative z-10">
+      <div className="animate-spin rounded-full h-16 w-16 border-4 border-cyber-cyan border-t-transparent"></div>
+      <p className="mt-4 text-xl text-cyber-white-dim font-mono">Loading...</p>
     </div>
   );
 }

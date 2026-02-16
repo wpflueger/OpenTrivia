@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from "vitest";
-import { useGameStore, type GameState } from "../stores/gameStore";
+import { useGameStore } from "../stores/gameStore";
 
 const mockQuestions = [
   {
@@ -222,12 +222,10 @@ describe("Game Store", () => {
     });
 
     it("should shuffle questions when shuffleQuestions is true", () => {
-      const { addPlayer, setQuestions, startGame, settings } =
+      const { addPlayer, setQuestions, startGame, updateSettings } =
         useGameStore.getState();
 
-      useGameStore.setState({
-        settings: { ...settings, shuffleQuestions: true },
-      });
+      updateSettings({ shuffleQuestions: true });
       mockPlayers.forEach(addPlayer);
       setQuestions(mockQuestions);
       startGame();
@@ -356,17 +354,29 @@ describe("Game Store", () => {
       expect(answers.size).toBe(0);
     });
 
-    it("should calculate time bonus correctly", () => {
+    it("should decrease score as time elapses", () => {
       const { showQuestion, submitAnswer, settings } = useGameStore.getState();
 
       showQuestion();
       submitAnswer("p1", "q1", ["b"], 10000);
 
       const scores = useGameStore.getState().scores;
-      const expectedBase = 1000;
-      const timeBonus =
-        Math.floor((settings.questionTimeLimit - 10000) / 1000) * 100;
-      expect(scores.get("p1")).toBe(expectedBase + timeBonus);
+      const expectedScore = Math.round(
+        ((settings.questionTimeLimit - 10000) / settings.questionTimeLimit) *
+          1000,
+      );
+      expect(scores.get("p1")).toBe(expectedScore);
+    });
+
+    it("should award higher score for faster correct answers", () => {
+      const { showQuestion, submitAnswer } = useGameStore.getState();
+
+      showQuestion();
+      submitAnswer("p1", "q1", ["b"], 2000);
+      submitAnswer("p2", "q1", ["b"], 12000);
+
+      const scores = useGameStore.getState().scores;
+      expect((scores.get("p1") || 0) > (scores.get("p2") || 0)).toBe(true);
     });
 
     it("should store the answer in answers map", () => {
@@ -499,16 +509,14 @@ describe("Game Store", () => {
       expect(settings.shuffleChoices).toBe(false);
     });
 
-    it("should update settings correctly", () => {
-      const { setPhase } = useGameStore.getState();
+    it("should update all settings with updateSettings", () => {
+      const { updateSettings } = useGameStore.getState();
 
-      useGameStore.setState({
-        settings: {
-          questionTimeLimit: 30000,
-          showLeaderboard: false,
-          shuffleQuestions: true,
-          shuffleChoices: true,
-        },
+      updateSettings({
+        questionTimeLimit: 30000,
+        showLeaderboard: false,
+        shuffleQuestions: true,
+        shuffleChoices: true,
       });
 
       const { settings } = useGameStore.getState();
@@ -516,6 +524,18 @@ describe("Game Store", () => {
       expect(settings.showLeaderboard).toBe(false);
       expect(settings.shuffleQuestions).toBe(true);
       expect(settings.shuffleChoices).toBe(true);
+    });
+
+    it("should merge partial settings updates", () => {
+      const { updateSettings } = useGameStore.getState();
+
+      updateSettings({ questionTimeLimit: 15000, shuffleQuestions: true });
+
+      const { settings } = useGameStore.getState();
+      expect(settings.questionTimeLimit).toBe(15000);
+      expect(settings.shuffleQuestions).toBe(true);
+      expect(settings.showLeaderboard).toBe(true);
+      expect(settings.shuffleChoices).toBe(false);
     });
   });
 });

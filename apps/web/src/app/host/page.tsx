@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useGameStore } from "@/stores/gameStore";
 
@@ -82,6 +82,8 @@ export default function HostPage() {
   const [error, setError] = useState("");
   const setQuestions = useGameStore((state) => state.setQuestions);
   const setRoomId = useGameStore((state) => state.setRoomId);
+  const settings = useGameStore((state) => state.settings);
+  const updateSettings = useGameStore((state) => state.updateSettings);
 
   const handleCreateGame = async () => {
     setIsLoading(true);
@@ -233,6 +235,76 @@ export default function HostPage() {
                 disabled={!!selectedLocalPack}
                 className="cyber-input"
               />
+            </div>
+
+            <div className="cyber-divider">
+              <span>SETTINGS</span>
+            </div>
+
+            <div className="space-y-4">
+              <div>
+                <label
+                  htmlFor="questionTimer"
+                  className="block text-sm font-medium text-cyber-white mb-2"
+                >
+                  <span className="flex items-center gap-2">
+                    <span className="w-2 h-2 bg-cyber-cyan rounded-full"></span>
+                    Question timer
+                  </span>
+                </label>
+                <select
+                  id="questionTimer"
+                  value={settings.questionTimeLimit}
+                  onChange={(e) => {
+                    updateSettings({
+                      questionTimeLimit: Number(e.target.value),
+                    });
+                  }}
+                  className="cyber-select"
+                >
+                  <option value={15000}>15 seconds</option>
+                  <option value={20000}>20 seconds</option>
+                  <option value={30000}>30 seconds</option>
+                </select>
+              </div>
+
+              <label className="flex items-center justify-between text-cyber-white">
+                <span className="font-mono text-sm">Shuffle questions</span>
+                <input
+                  type="checkbox"
+                  checked={settings.shuffleQuestions}
+                  onChange={(e) => {
+                    updateSettings({ shuffleQuestions: e.target.checked });
+                  }}
+                  className="h-4 w-4"
+                />
+              </label>
+
+              <label className="flex items-center justify-between text-cyber-white">
+                <span className="font-mono text-sm">Shuffle choices</span>
+                <input
+                  type="checkbox"
+                  checked={settings.shuffleChoices}
+                  onChange={(e) => {
+                    updateSettings({ shuffleChoices: e.target.checked });
+                  }}
+                  className="h-4 w-4"
+                />
+              </label>
+
+              <label className="flex items-center justify-between text-cyber-white">
+                <span className="font-mono text-sm">
+                  Show leaderboard between questions
+                </span>
+                <input
+                  type="checkbox"
+                  checked={settings.showLeaderboard}
+                  onChange={(e) => {
+                    updateSettings({ showLeaderboard: e.target.checked });
+                  }}
+                  className="h-4 w-4"
+                />
+              </label>
             </div>
 
             {error && (

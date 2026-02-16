@@ -48,6 +48,7 @@ export interface GameActions {
   removePlayer: (playerId: string) => void;
   setPlayerReady: (playerId: string, isReady: boolean) => void;
   setPlayerConnected: (playerId: string, isConnected: boolean) => void;
+  updateSettings: (settings: Partial<GameSettings>) => void;
   setQuestions: (questions: Question[]) => void;
   startGame: () => void;
   showQuestion: () => void;
@@ -58,7 +59,7 @@ export interface GameActions {
     questionId: string,
     choiceIds: string[],
     timeMs: number,
-  ) => void;
+  ) => boolean;
   nextQuestion: () => void;
   endGame: () => void;
   reset: () => void;
@@ -127,13 +128,27 @@ export const useGameStore = create<GameState & GameActions>((set, get) => ({
       ),
     })),
 
+  updateSettings: (settings) =>
+    set((state) => ({
+      settings: {
+        ...state.settings,
+        ...settings,
+      },
+    })),
+
   setQuestions: (questions) => set({ questions }),
 
   startGame: () => {
     const state = get();
-    const questions = state.settings.shuffleQuestions
+    const maybeShuffledQuestions = state.settings.shuffleQuestions
       ? [...state.questions].sort(() => Math.random() - 0.5)
       : state.questions;
+    const questions = state.settings.shuffleChoices
+      ? maybeShuffledQuestions.map((question) => ({
+          ...question,
+          choices: [...question.choices].sort(() => Math.random() - 0.5),
+        }))
+      : maybeShuffledQuestions;
 
     set({
       phase: "countdown",
@@ -162,21 +177,23 @@ export const useGameStore = create<GameState & GameActions>((set, get) => ({
     const state = get();
     const question = state.questions[state.currentQuestionIndex];
 
-    if (!question || question.id !== questionId) return;
-    if (state.answers.has(playerId)) return;
+    if (!question || state.phase !== "question") return false;
+    if (questionId && question.id !== questionId) return false;
+    if (state.answers.has(playerId)) return false;
 
     const maxAcceptedTime = state.settings.questionTimeLimit + 1000;
-    if (timeMs < 0 || timeMs > maxAcceptedTime) return;
+    if (timeMs < 0 || timeMs > maxAcceptedTime) return false;
 
     const newAnswers = new Map(state.answers);
     newAnswers.set(playerId, choiceIds);
 
     const isCorrect = choiceIds.includes(question.answer.choiceId);
-    const timeBonus = Math.max(
+    const remainingRatio = Math.max(
       0,
-      Math.floor((state.settings.questionTimeLimit - timeMs) / 1000) * 100,
+      (state.settings.questionTimeLimit - timeMs) /
+        state.settings.questionTimeLimit,
     );
-    const scoreDelta = isCorrect ? 1000 + timeBonus : 0;
+    const scoreDelta = isCorrect ? Math.round(1000 * remainingRatio) : 0;
 
     const newScores = new Map(state.scores);
     newScores.set(playerId, (newScores.get(playerId) || 0) + scoreDelta);
@@ -185,6 +202,8 @@ export const useGameStore = create<GameState & GameActions>((set, get) => ({
       answers: newAnswers,
       scores: newScores,
     });
+
+    return true;
   },
 
   nextQuestion: () => {

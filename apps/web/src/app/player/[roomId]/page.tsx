@@ -3,6 +3,7 @@
 import { Suspense, useEffect, useState, useRef } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { PlayerWebRTCManager } from "@/lib/webrtc";
+import type { ChoiceStats } from "@/lib/answer-stats";
 
 type PlayerPhase =
   | "connecting"
@@ -23,12 +24,17 @@ interface QuestionData {
 interface RevealPayload {
   correctChoiceId: string;
   resultsByPlayer: Record<string, { correct: boolean; score: number }>;
+  choiceStats?: ChoiceStats;
 }
 
 interface LeaderboardEntry {
   id: string;
   nickname: string;
   score: number;
+}
+
+interface AnswerAckPayload {
+  accepted: boolean;
 }
 
 interface PlayerState {
@@ -41,6 +47,9 @@ interface PlayerState {
   lastAnswerCorrect: boolean | null;
   timeRemaining: number;
   answerStatus: "submitted" | "timeout" | null;
+  answerDelivery: "pending" | "accepted" | "rejected" | null;
+  revealChoiceStats: ChoiceStats;
+  revealAnsweredCount: number;
 }
 
 function PlayerGameContent() {
@@ -58,6 +67,9 @@ function PlayerGameContent() {
     lastAnswerCorrect: null,
     timeRemaining: 0,
     answerStatus: null,
+    answerDelivery: null,
+    revealChoiceStats: {},
+    revealAnsweredCount: 0,
   });
 
   const [selectedChoice, setSelectedChoice] = useState<string | null>(null);
@@ -94,7 +106,11 @@ function PlayerGameContent() {
         onMessage: (data: unknown) => {
           const msg = data as {
             type: string;
-            payload?: QuestionData | RevealPayload | LeaderboardEntry[];
+            payload?:
+              | QuestionData
+              | RevealPayload
+              | LeaderboardEntry[]
+              | AnswerAckPayload;
           };
           if (msg.type === "question" && msg.payload) {
             const payload = msg.payload as QuestionData;
@@ -103,13 +119,27 @@ function PlayerGameContent() {
               ...prev,
               question: payload,
               phase: "question",
-              timeRemaining: Math.floor((payload.durationMs || 20000) / 1000),
+              timeRemaining: Math.floor(payload.durationMs / 1000),
               lastAnswerCorrect: null,
               answerStatus: null,
+              answerDelivery: null,
+              revealChoiceStats: {},
+              revealAnsweredCount: 0,
+            }));
+          } else if (msg.type === "answer.ack" && msg.payload) {
+            const payload = msg.payload as AnswerAckPayload;
+            setState((prev) => ({
+              ...prev,
+              answerDelivery: payload.accepted ? "accepted" : "rejected",
             }));
           } else if (msg.type === "reveal") {
             const payload = msg.payload as RevealPayload | undefined;
             const playerResult = payload?.resultsByPlayer?.[playerId];
+            const revealChoiceStats = payload?.choiceStats ?? {};
+            const revealAnsweredCount = Object.values(revealChoiceStats).reduce(
+              (total, stat) => total + stat.count,
+              0,
+            );
 
             setState((prev) => ({
               ...prev,
@@ -123,6 +153,9 @@ function PlayerGameContent() {
                   ? playerResult.score
                   : prev.score,
               answerStatus: null,
+              answerDelivery: null,
+              revealChoiceStats,
+              revealAnsweredCount,
             }));
           } else if (msg.type === "leaderboard") {
             const payload = msg.payload as LeaderboardEntry[] | undefined;
@@ -136,6 +169,7 @@ function PlayerGameContent() {
                   ? playerEntry.score
                   : prev.score,
               answerStatus: null,
+              answerDelivery: null,
             }));
           } else if (msg.type === "ended") {
             setState((prev) => ({ ...prev, phase: "ended" }));
@@ -212,13 +246,18 @@ function PlayerGameContent() {
       phase: "answered",
       lastAnswerCorrect: null,
       answerStatus: "submitted",
+      answerDelivery: "pending",
     }));
 
     webrtcRef.current?.send({
       type: "answer",
       playerId: state.playerId,
+      questionId: state.question.id,
       choiceId: selectedChoice,
-      timeMs: state.question.durationMs - state.timeRemaining * 1000,
+      timeMs: Math.max(
+        0,
+        state.question.durationMs - state.timeRemaining * 1000,
+      ),
     });
   };
 
@@ -289,6 +328,9 @@ function PlayerGameContent() {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center p-4 relative z-10">
         <div className="max-w-lg w-full">
+          <div className="sr-only" aria-live="polite">
+            Question shown. {state.timeRemaining} seconds remaining.
+          </div>
           <div className="cyber-card rounded-2xl p-6 mb-6">
             <div className="flex justify-between items-center mb-4">
               <span className="text-lg font-mono text-cyber-white-dim">
@@ -296,6 +338,7 @@ function PlayerGameContent() {
               </span>
               <span
                 className={`cyber-timer ${state.timeRemaining <= 5 ? "urgent" : ""}`}
+                aria-live="polite"
               >
                 {state.timeRemaining}s
               </span>
@@ -336,9 +379,22 @@ function PlayerGameContent() {
   }
 
   if (state.phase === "answered") {
+    const selectedChoiceText = state.question?.choices.find(
+      (choice) => choice.id === selectedChoice,
+    )?.text;
+
     return (
       <div className="min-h-screen flex flex-col items-center justify-center p-4 relative z-10">
         <div className="text-center">
+          <div className="sr-only" aria-live="assertive">
+            {state.answerStatus === "submitted"
+              ? state.answerDelivery === "accepted"
+                ? "Answer received by host"
+                : state.answerDelivery === "rejected"
+                  ? "Answer was not accepted"
+                  : "Answer sent"
+              : "Answer time is over"}
+          </div>
           <div className="text-6xl mb-4">
             {state.answerStatus === "submitted" ? "✓" : "⏱"}
           </div>
@@ -350,15 +406,37 @@ function PlayerGameContent() {
           <p className="text-xl text-cyber-white-dim font-mono">
             Waiting for host...
           </p>
+          {state.answerStatus === "submitted" && (
+            <p className="mt-2 text-cyber-white-dim font-mono text-sm">
+              {state.answerDelivery === "accepted"
+                ? "Answer received by host"
+                : state.answerDelivery === "rejected"
+                  ? "Answer was not accepted"
+                  : "Sending answer..."}
+            </p>
+          )}
+          {state.answerStatus === "submitted" && selectedChoiceText && (
+            <p className="mt-3 text-cyber-cyan font-mono text-sm">
+              You answered: {selectedChoiceText}
+            </p>
+          )}
         </div>
       </div>
     );
   }
 
   if (state.phase === "reveal") {
+    const selectedChoiceStat = selectedChoice
+      ? state.revealChoiceStats[selectedChoice]
+      : undefined;
+
     return (
       <div className="min-h-screen flex flex-col items-center justify-center p-4 relative z-10">
         <div className="text-center">
+          <div className="sr-only" aria-live="assertive">
+            {state.lastAnswerCorrect ? "Correct answer" : "Wrong answer"}. Score{" "}
+            {state.score}.
+          </div>
           <div className="text-8xl mb-4">
             {state.lastAnswerCorrect ? "🎉" : "😔"}
           </div>
@@ -373,6 +451,14 @@ function PlayerGameContent() {
             {state.lastAnswerCorrect ? "CORRECT!" : "WRONG!"}
           </h2>
           <p className="text-xl cyber-score">SCORE: {state.score}</p>
+          <p className="mt-3 text-cyber-white-dim font-mono text-sm">
+            {selectedChoiceStat
+              ? `${selectedChoiceStat.percent}% chose your answer`
+              : "No answer selected"}
+          </p>
+          <p className="text-cyber-cyan font-mono text-sm">
+            {state.revealAnsweredCount} total answered
+          </p>
         </div>
       </div>
     );

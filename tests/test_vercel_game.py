@@ -59,7 +59,17 @@ def test_vercel_game_flow():
         # Step 6: Host starts game
         print("\n6. Host starting game...")
         start_button = page.locator('button:has-text("START GAME")')
-        if start_button.is_visible(timeout=5000):
+        for _ in range(20):
+            if start_button.is_enabled():
+                break
+            page.wait_for_timeout(300)
+
+        if not start_button.is_enabled():
+            player_page.reload()
+            player_page.wait_for_url(f"**/player/{room_code}**", timeout=15000)
+            page.wait_for_timeout(1500)
+
+        if start_button.is_enabled():
             start_button.click()
             print("   ✓ Clicked START GAME")
 
@@ -118,7 +128,12 @@ def test_local_full_game():
         # Host starts game
         print("\n3. Host starting game...")
         start_button = host_page.locator('button:has-text("START GAME")')
-        if start_button.is_visible(timeout=5000):
+        for _ in range(20):
+            if start_button.is_enabled():
+                break
+            host_page.wait_for_timeout(300)
+
+        if start_button.is_enabled():
             start_button.click()
             print("   ✓ Clicked START GAME")
 

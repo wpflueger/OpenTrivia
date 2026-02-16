@@ -48,7 +48,24 @@ def test_full_game():
 
         # Start game
         print("\n3. Starting game...")
-        host_page.locator('button:has-text("START GAME")').click()
+        start_button = host_page.locator('button:has-text("START GAME")')
+        for _ in range(4):
+            for _ in range(30):
+                if start_button.is_enabled():
+                    break
+                host_page.wait_for_timeout(300)
+
+            if start_button.is_enabled():
+                break
+
+            player1_page.reload()
+            player1_page.wait_for_url(f"**/player/{room_code}**", timeout=15000)
+            player2_page.reload()
+            player2_page.wait_for_url(f"**/player/{room_code}**", timeout=15000)
+            host_page.wait_for_timeout(1500)
+
+        assert start_button.is_enabled()
+        start_button.click()
         host_page.wait_for_timeout(4500)
 
         print("\n4. Playing through full game...")

@@ -29,8 +29,12 @@ function LobbyContent() {
   } = useGameStore();
 
   const displayRoomId = roomId || storeRoomId;
+  const joinLink =
+    typeof window !== "undefined"
+      ? `${window.location.origin}/join?room=${displayRoomId}`
+      : `/join?room=${displayRoomId}`;
 
-  const qrValue = "OPENTRIVIA:" + displayRoomId;
+  const qrValue = joinLink;
 
   const handlePlayerJoin = useCallback(
     (playerId: string, nickname?: string) => {
@@ -102,6 +106,9 @@ function LobbyContent() {
   ]);
 
   const handleStartGame = () => {
+    if (!canStartGame) {
+      return;
+    }
     startGame();
     router.push("/host/game");
   };
@@ -117,12 +124,9 @@ function LobbyContent() {
   };
 
   const handleCopyJoinLink = () => {
-    if (typeof window !== "undefined") {
-      const joinLink = `${window.location.origin}/join?room=${displayRoomId}`;
-      navigator.clipboard.writeText(joinLink);
-      setCopied("link");
-      setTimeout(() => setCopied(null), 2000);
-    }
+    navigator.clipboard.writeText(joinLink);
+    setCopied("link");
+    setTimeout(() => setCopied(null), 2000);
   };
 
   if (!displayRoomId) {
@@ -142,6 +146,11 @@ function LobbyContent() {
   }
 
   const readyPlayers = players.filter((p) => p.isReady).length;
+  const minimumReadyPlayers = Math.min(players.length, 2);
+  const canStartGame =
+    questions.length > 0 &&
+    (players.length === 0 || readyPlayers >= minimumReadyPlayers);
+  const waitingPlayers = players.length - readyPlayers;
 
   return (
     <div className="min-h-screen flex flex-col items-center justify-center p-4 relative z-10">
@@ -172,8 +181,8 @@ function LobbyContent() {
               <p className="mt-4 text-sm text-cyber-white-dim text-center font-mono">
                 Scan to join
                 <br />
-                <span className="text-cyber-cyan font-bold">
-                  {displayRoomId}
+                <span className="text-cyber-cyan font-bold text-xs break-all">
+                  {joinLink}
                 </span>
               </p>
               <button
@@ -224,7 +233,7 @@ function LobbyContent() {
                     <div className="cyber-avatar w-10 h-10 text-lg">
                       {player.nickname.charAt(0).toUpperCase()}
                     </div>
-                    <span className="font-medium text-cyber-white">
+                    <span className="font-medium text-cyber-white truncate max-w-[180px]">
                       {player.nickname}
                     </span>
                   </div>
@@ -262,11 +271,22 @@ function LobbyContent() {
           </button>
           <button
             onClick={handleStartGame}
+            disabled={!canStartGame}
             className="cyber-button flex-1 py-3 font-semibold rounded-xl"
           >
             START GAME
           </button>
         </div>
+
+        <p className="mt-3 text-cyber-white-dim text-center font-mono text-xs">
+          {canStartGame
+            ? waitingPlayers > 0
+              ? `${waitingPlayers} player${waitingPlayers === 1 ? "" : "s"} still connecting`
+              : "All players ready"
+            : players.length === 0
+              ? "No players connected yet - start for a solo run"
+              : `Need ${minimumReadyPlayers} ready players to start`}
+        </p>
 
         <div className="mt-6 flex flex-col items-center gap-4">
           {!showQR ? (
@@ -366,9 +386,9 @@ function LobbyContent() {
             </button>
           </div>
 
-          <p className="text-cyber-white-dim text-center font-mono text-sm">
+          <p className="text-cyber-white-dim text-center font-mono text-xs break-all">
             Or share:{" "}
-            <span className="text-cyber-cyan font-bold">{displayRoomId}</span>
+            <span className="text-cyber-cyan font-bold">{joinLink}</span>
           </p>
         </div>
       </div>

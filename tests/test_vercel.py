@@ -66,9 +66,18 @@ def test_game():
             f"   Player status: {'CONNECTED' if 'CONNECTED' in player_text else 'NOT CONNECTED'}"
         )
 
+        for _ in range(20):
+            host_text = host_page.locator("body").inner_text()
+            start_enabled = host_page.locator(
+                'button:has-text("START GAME")'
+            ).is_enabled()
+            if "1/1 ready" in host_text and start_enabled:
+                break
+            host_page.wait_for_timeout(300)
+
         # Host starts game
         print("\n5. Starting game...")
-        if host_page.locator('button:has-text("START GAME")').is_visible(timeout=5000):
+        if host_page.locator('button:has-text("START GAME")').is_enabled(timeout=5000):
             host_page.locator('button:has-text("START GAME")').click()
             print("   ✓ Started game")
 

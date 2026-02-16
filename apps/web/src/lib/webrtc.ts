@@ -53,8 +53,16 @@ export class HostWebRTCManager {
     this.onMessage = options.onMessage;
   }
 
+  setOnMessage(handler?: (playerId: string, data: unknown) => void): void {
+    this.onMessage = handler;
+  }
+
   async start(): Promise<void> {
-    this.pollInterval = setInterval(() => this.poll(), 1000);
+    if (this.pollInterval) {
+      return;
+    }
+
+    this.pollInterval = setInterval(() => this.poll(), 1500);
   }
 
   stop(): void {
@@ -315,6 +323,13 @@ export class PlayerWebRTCManager {
   }
 
   async connect(): Promise<void> {
+    this.stopPolling();
+    this.dataChannel?.close();
+    this.connection?.close();
+    this.dataChannel = null;
+    this.connection = null;
+    this.processedCandidates = 0;
+
     this.connection = new RTCPeerConnection({
       iceServers: [{ urls: "stun:stun.l.google.com:19302" }],
     });
@@ -360,7 +375,14 @@ export class PlayerWebRTCManager {
       return;
     }
 
-    this.pollInterval = setInterval(() => this.poll(), 500);
+    this.pollInterval = setInterval(() => this.poll(), 1000);
+  }
+
+  private stopPolling(): void {
+    if (this.pollInterval) {
+      clearInterval(this.pollInterval);
+      this.pollInterval = null;
+    }
   }
 
   private delay(ms: number): Promise<void> {
@@ -458,6 +480,7 @@ export class PlayerWebRTCManager {
   private setupDataChannel(channel: RTCDataChannel): void {
     channel.onopen = () => {
       console.log("Player data channel open");
+      this.stopPolling();
       this.onConnected?.();
     };
 
@@ -483,13 +506,11 @@ export class PlayerWebRTCManager {
   }
 
   disconnect(): void {
-    if (this.pollInterval) {
-      clearInterval(this.pollInterval);
-      this.pollInterval = null;
-    }
+    this.stopPolling();
     this.dataChannel?.close();
     this.connection?.close();
     this.dataChannel = null;
     this.connection = null;
+    this.processedCandidates = 0;
   }
 }
