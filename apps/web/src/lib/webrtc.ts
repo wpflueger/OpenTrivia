@@ -1,0 +1,572 @@
+export interface PeerConnection {
+  id: string;
+  connection: RTCPeerConnection;
+  dataChannel?: RTCDataChannel;
+}
+
+export type ConnectionState =
+  | "disconnected"
+  | "connecting"
+  | "connected"
+  | "failed";
+
+export interface SignalingMessage {
+  type: "offer" | "answer" | "candidate";
+  payload: RTCSessionDescriptionInit | RTCIceCandidateInit;
+}
+
+interface PlayerInfo {
+  playerId: string;
+  nickname?: string;
+}
+
+export class HostWebRTCManager {
+  private connections: Map<string, RTCPeerConnection> = new Map();
+  private dataChannels: Map<string, RTCDataChannel> = new Map();
+  private signalingUrl: string;
+  private roomId: string;
+  private hostToken: string;
+  private pollInterval: ReturnType<typeof setInterval> | null = null;
+  private processedPlayers: Set<string> = new Set();
+  private processingPlayers: Set<string> = new Set();
+  private onPlayerJoin?: (playerId: string, nickname?: string) => void;
+  private onPlayerReady?: (playerId: string) => void;
+  private onPlayerLeave?: (playerId: string) => void;
+  private onMessage?: (playerId: string, data: unknown) => void;
+  private processedCandidates: Map<string, number> = new Map();
+
+  constructor(options: {
+    signalingUrl: string;
+    roomId: string;
+    hostToken: string;
+    onPlayerJoin?: (playerId: string, nickname?: string) => void;
+    onPlayerReady?: (playerId: string) => void;
+    onPlayerLeave?: (playerId: string) => void;
+    onMessage?: (playerId: string, data: unknown) => void;
+  }) {
+    this.signalingUrl = options.signalingUrl;
+    this.roomId = options.roomId;
+    this.hostToken = options.hostToken;
+    this.onPlayerJoin = options.onPlayerJoin;
+    this.onPlayerReady = options.onPlayerReady;
+    this.onPlayerLeave = options.onPlayerLeave;
+    this.onMessage = options.onMessage;
+  }
+
+  setOnMessage(handler?: (playerId: string, data: unknown) => void): void {
+    this.onMessage = handler;
+  }
+
+  async start(): Promise<void> {
+    if (this.pollInterval) {
+      return;
+    }
+
+    this.pollInterval = setInterval(() => this.poll(), 1500);
+  }
+
+  stop(): void {
+    if (this.pollInterval) {
+      clearInterval(this.pollInterval);
+      this.pollInterval = null;
+    }
+    this.disconnect();
+  }
+
+  private async poll(): Promise<void> {
+    try {
+      await this.checkForNewPlayers();
+      await this.checkForCandidates();
+    } catch (error) {
+      console.error("Poll error:", error);
+    }
+  }
+
+  private async checkForNewPlayers(): Promise<void> {
+    try {
+      const response = await fetch(
+        `${this.signalingUrl}/api/session/${this.roomId}/offer?hostToken=${this.hostToken}`,
+      );
+      const data = await response.json();
+
+      if (data.players) {
+        for (const player of data.players as Array<
+          PlayerInfo & { hasOffer: boolean }
+        >) {
+          if (player.hasOffer && !this.processedPlayers.has(player.playerId)) {
+            if (this.processingPlayers.has(player.playerId)) {
+              continue;
+            }
+            await this.handleNewPlayer(player.playerId, player.nickname);
+          }
+        }
+      }
+    } catch (error) {
+      console.error("Error checking for players:", error);
+    }
+  }
+
+  private async handleNewPlayer(
+    playerId: string,
+    nickname?: string,
+  ): Promise<void> {
+    this.processingPlayers.add(playerId);
+
+    const connection = new RTCPeerConnection({
+      iceServers: [{ urls: "stun:stun.l.google.com:19302" }],
+    });
+
+    connection.onicecandidate = (event) => {
+      if (event.candidate) {
+        this.sendCandidate(playerId, event.candidate);
+      }
+    };
+
+    connection.ondatachannel = (event) => {
+      this.setupDataChannel(playerId, event.channel);
+    };
+
+    connection.onconnectionstatechange = () => {
+      if (
+        connection.connectionState === "disconnected" ||
+        connection.connectionState === "failed"
+      ) {
+        this.handlePlayerLeave(playerId);
+      }
+    };
+
+    this.connections.set(playerId, connection);
+
+    try {
+      const response = await fetch(
+        `${this.signalingUrl}/api/session/${this.roomId}/offer?hostToken=${this.hostToken}&playerId=${playerId}`,
+      );
+      const data = await response.json();
+
+      if (data.offer) {
+        const offer = new RTCSessionDescription(data.offer);
+        await connection.setRemoteDescription(offer);
+
+        const answer = await connection.createAnswer();
+        await connection.setLocalDescription(answer);
+
+        await this.sendAnswer(playerId, answer);
+      }
+    } catch (error) {
+      console.error("Error handling new player:", error);
+      this.processingPlayers.delete(playerId);
+      this.connections.delete(playerId);
+      connection.close();
+      return;
+    }
+
+    this.processingPlayers.delete(playerId);
+    this.processedPlayers.add(playerId);
+
+    this.onPlayerJoin?.(playerId, nickname);
+  }
+
+  private async sendAnswer(
+    playerId: string,
+    answer: RTCSessionDescriptionInit,
+  ): Promise<void> {
+    await fetch(`${this.signalingUrl}/api/session/${this.roomId}/answer`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        roomId: this.roomId,
+        playerId,
+        answer,
+        hostToken: this.hostToken,
+      }),
+    });
+  }
+
+  private async sendCandidate(
+    playerId: string,
+    candidate: RTCIceCandidateInit,
+  ): Promise<void> {
+    await fetch(`${this.signalingUrl}/api/session/${this.roomId}/candidate`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        roomId: this.roomId,
+        playerId,
+        candidate,
+        hostToken: this.hostToken,
+      }),
+    });
+  }
+
+  private async checkForCandidates(): Promise<void> {
+    try {
+      const response = await fetch(
+        `${this.signalingUrl}/api/session/${this.roomId}/candidate?hostToken=${this.hostToken}`,
+      );
+      const data = await response.json();
+
+      if (data.candidatesByPlayer) {
+        for (const [playerId, candidates] of Object.entries(
+          data.candidatesByPlayer,
+        )) {
+          const connection = this.connections.get(playerId);
+          if (!connection || !connection.remoteDescription) continue;
+
+          const lastProcessed = this.processedCandidates.get(playerId) || 0;
+          const newCandidates = (candidates as RTCIceCandidateInit[]).slice(
+            lastProcessed,
+          );
+
+          for (const candidate of newCandidates) {
+            try {
+              await connection.addIceCandidate(new RTCIceCandidate(candidate));
+              this.processedCandidates.set(playerId, lastProcessed + 1);
+            } catch (error) {
+              console.error("Error adding ICE candidate:", error);
+            }
+          }
+        }
+      }
+    } catch (error) {
+      console.error("Error checking for candidates:", error);
+    }
+  }
+
+  private setupDataChannel(playerId: string, channel: RTCDataChannel): void {
+    channel.onopen = () => {
+      console.log(`Data channel open for ${playerId}`);
+      this.dataChannels.set(playerId, channel);
+      this.onPlayerReady?.(playerId);
+    };
+
+    channel.onmessage = (event) => {
+      try {
+        const data = JSON.parse(event.data);
+        this.onMessage?.(playerId, data);
+      } catch (error) {
+        console.error("Failed to parse message:", error);
+      }
+    };
+
+    channel.onclose = () => {
+      console.log(`Data channel closed for ${playerId}`);
+      this.handlePlayerLeave(playerId);
+    };
+  }
+
+  private handlePlayerLeave(playerId: string): void {
+    this.connections.get(playerId)?.close();
+    this.connections.delete(playerId);
+    this.dataChannels.delete(playerId);
+    this.onPlayerLeave?.(playerId);
+  }
+
+  send(playerId: string, data: unknown): void {
+    const channel = this.dataChannels.get(playerId);
+    if (channel && channel.readyState === "open") {
+      channel.send(JSON.stringify(data));
+    }
+  }
+
+  broadcast(data: unknown): void {
+    const message = JSON.stringify(data);
+    this.dataChannels.forEach((channel) => {
+      if (channel.readyState === "open") {
+        channel.send(message);
+      }
+    });
+  }
+
+  getConnectedPlayers(): string[] {
+    return Array.from(this.dataChannels.entries())
+      .filter(([, channel]) => channel.readyState === "open")
+      .map(([playerId]) => playerId);
+  }
+
+  disconnect(): void {
+    this.connections.forEach((conn) => conn.close());
+    this.connections.clear();
+    this.dataChannels.clear();
+    this.processedPlayers.clear();
+  }
+}
+
+export class PlayerWebRTCManager {
+  private connection: RTCPeerConnection | null = null;
+  private dataChannel: RTCDataChannel | null = null;
+  private signalingUrl: string;
+  private roomId: string;
+  private playerId: string;
+  private playerToken?: string;
+  private nickname: string;
+  private pollInterval: ReturnType<typeof setInterval> | null = null;
+  private processedCandidates: number = 0;
+  private pendingLocalCandidates: RTCIceCandidateInit[] = [];
+  private onMessage?: (data: unknown) => void;
+  private onConnected?: () => void;
+  private onDisconnected?: () => void;
+
+  constructor(options: {
+    signalingUrl: string;
+    roomId: string;
+    playerId: string;
+    playerToken?: string;
+    nickname: string;
+    onAuth?: (playerId: string, playerToken: string) => void;
+    onMessage?: (data: unknown) => void;
+    onConnected?: () => void;
+    onDisconnected?: () => void;
+  }) {
+    this.signalingUrl = options.signalingUrl;
+    this.roomId = options.roomId;
+    this.playerId = options.playerId;
+    this.playerToken = options.playerToken;
+    this.nickname = options.nickname;
+    this.onAuth = options.onAuth;
+    this.onMessage = options.onMessage;
+    this.onConnected = options.onConnected;
+    this.onDisconnected = options.onDisconnected;
+  }
+
+  private onAuth?: (playerId: string, playerToken: string) => void;
+
+  async connect(): Promise<void> {
+    this.stopPolling();
+    this.dataChannel?.close();
+    this.connection?.close();
+    this.dataChannel = null;
+    this.connection = null;
+    this.processedCandidates = 0;
+    this.pendingLocalCandidates = [];
+
+    this.connection = new RTCPeerConnection({
+      iceServers: [{ urls: "stun:stun.l.google.com:19302" }],
+    });
+
+    this.connection.onicecandidate = (event) => {
+      if (event.candidate) {
+        this.handleLocalCandidate(event.candidate);
+      }
+    };
+
+    this.connection.onconnectionstatechange = () => {
+      if (
+        this.connection?.connectionState === "disconnected" ||
+        this.connection?.connectionState === "failed"
+      ) {
+        this.onDisconnected?.();
+      }
+    };
+
+    this.dataChannel = this.connection.createDataChannel("game");
+    this.setupDataChannel(this.dataChannel);
+
+    const offer = await this.connection.createOffer();
+    await this.connection.setLocalDescription(offer);
+
+    let offerSent = false;
+    for (let attempt = 0; attempt < 5; attempt++) {
+      try {
+        const auth = await this.sendOffer(offer);
+        if (auth.playerId) {
+          this.playerId = auth.playerId;
+        }
+        if (auth.playerToken) {
+          this.playerToken = auth.playerToken;
+          this.onAuth?.(this.playerId, auth.playerToken);
+          this.flushPendingLocalCandidates();
+        }
+        offerSent = true;
+        break;
+      } catch (error) {
+        if (attempt === 4) {
+          console.error("Failed to send offer after retries:", error);
+        } else {
+          await this.delay(300);
+        }
+      }
+    }
+
+    if (!offerSent) {
+      this.onDisconnected?.();
+      return;
+    }
+
+    this.pollInterval = setInterval(() => this.poll(), 1000);
+  }
+
+  private stopPolling(): void {
+    if (this.pollInterval) {
+      clearInterval(this.pollInterval);
+      this.pollInterval = null;
+    }
+  }
+
+  private delay(ms: number): Promise<void> {
+    return new Promise((resolve) => setTimeout(resolve, ms));
+  }
+
+  private async poll(): Promise<void> {
+    try {
+      await this.checkForAnswer();
+      await this.checkForCandidates();
+    } catch (error) {
+      console.error("Poll error:", error);
+    }
+  }
+
+  private async sendOffer(
+    offer: RTCSessionDescriptionInit,
+  ): Promise<{ playerId?: string; playerToken?: string }> {
+    const response = await fetch(
+      `${this.signalingUrl}/api/session/${this.roomId}/offer`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          roomId: this.roomId,
+          playerId: this.playerId,
+          playerToken: this.playerToken,
+          nickname: this.nickname,
+          offer,
+        }),
+      },
+    );
+
+    if (!response.ok) {
+      throw new Error(`Failed to send offer: ${response.status}`);
+    }
+
+    return (await response.json()) as {
+      playerId?: string;
+      playerToken?: string;
+    };
+  }
+
+  private async sendCandidate(candidate: RTCIceCandidateInit): Promise<void> {
+    if (!this.playerToken) {
+      return;
+    }
+
+    await fetch(`${this.signalingUrl}/api/session/${this.roomId}/candidate`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        roomId: this.roomId,
+        playerId: this.playerId,
+        playerToken: this.playerToken,
+        candidate,
+      }),
+    });
+  }
+
+  private handleLocalCandidate(candidate: RTCIceCandidateInit): void {
+    if (!this.playerToken) {
+      this.pendingLocalCandidates.push(candidate);
+      return;
+    }
+
+    this.sendCandidate(candidate);
+  }
+
+  private flushPendingLocalCandidates(): void {
+    if (!this.playerToken || this.pendingLocalCandidates.length === 0) {
+      return;
+    }
+
+    const pending = [...this.pendingLocalCandidates];
+    this.pendingLocalCandidates = [];
+    pending.forEach((candidate) => {
+      this.sendCandidate(candidate);
+    });
+  }
+
+  private async checkForAnswer(): Promise<void> {
+    try {
+      if (!this.playerToken) {
+        return;
+      }
+
+      const response = await fetch(
+        `${this.signalingUrl}/api/session/${this.roomId}/answer?playerId=${this.playerId}&playerToken=${this.playerToken}`,
+      );
+      const data = await response.json();
+
+      if (
+        data.answer &&
+        this.connection?.signalingState === "have-local-offer"
+      ) {
+        const answer = new RTCSessionDescription(data.answer);
+        await this.connection.setRemoteDescription(answer);
+      }
+    } catch (error) {
+      console.error("Error checking for answer:", error);
+    }
+  }
+
+  private async checkForCandidates(): Promise<void> {
+    if (!this.connection?.remoteDescription || !this.playerToken) {
+      return;
+    }
+
+    try {
+      const response = await fetch(
+        `${this.signalingUrl}/api/session/${this.roomId}/candidate?playerId=${this.playerId}&playerToken=${this.playerToken}&afterIndex=${this.processedCandidates}`,
+      );
+      const data = await response.json();
+
+      if (data.candidates) {
+        for (const candidate of data.candidates) {
+          try {
+            await this.connection?.addIceCandidate(
+              new RTCIceCandidate(candidate),
+            );
+            this.processedCandidates++;
+          } catch (error) {
+            console.error("Error adding ICE candidate:", error);
+          }
+        }
+      }
+    } catch (error) {
+      console.error("Error checking for candidates:", error);
+    }
+  }
+
+  private setupDataChannel(channel: RTCDataChannel): void {
+    channel.onopen = () => {
+      console.log("Player data channel open");
+      this.stopPolling();
+      this.onConnected?.();
+    };
+
+    channel.onmessage = (event) => {
+      try {
+        const data = JSON.parse(event.data);
+        this.onMessage?.(data);
+      } catch (error) {
+        console.error("Failed to parse message:", error);
+      }
+    };
+
+    channel.onclose = () => {
+      console.log("Player data channel closed");
+      this.onDisconnected?.();
+    };
+  }
+
+  send(data: unknown): void {
+    if (this.dataChannel && this.dataChannel.readyState === "open") {
+      this.dataChannel.send(JSON.stringify(data));
+    }
+  }
+
+  disconnect(): void {
+    this.stopPolling();
+    this.dataChannel?.close();
+    this.connection?.close();
+    this.dataChannel = null;
+    this.connection = null;
+    this.processedCandidates = 0;
+    this.pendingLocalCandidates = [];
+  }
+}

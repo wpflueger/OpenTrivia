@@ -1,0 +1,60 @@
+[
+  {
+    "id": "q1",
+    "type": "mcq",
+    "prompt": "What movie won the first Academy Award for Best Picture?",
+    "choices": [
+      { "id": "a", "text": "The Jazz Singer" },
+      { "id": "b", "text": "Wings" },
+      { "id": "c", "text": "Sunrise" },
+      { "id": "d", "text": "7th Heaven" }
+    ],
+    "answer": { "choiceId": "b" }
+  },
+  {
+    "id": "q2",
+    "type": "mcq",
+    "prompt": "Who directed the movie 'Jaws'?",
+    "choices": [
+      { "id": "a", "text": "George Lucas" },
+      { "id": "b", "text": "Steven Spielberg" },
+      { "id": "c", "text": "Martin Scorsese" },
+      { "id": "d", "text": "Francis Ford Coppola" }
+    ],
+    "answer": { "choiceId": "b" }
+  },
+  {
+    "id": "q3",
+    "type": "boolean",
+    "prompt": "The movie 'Titanic' was released in 1997.",
+    "choices": [
+      { "id": "true", "text": "True" },
+      { "id": "false", "text": "False" }
+    ],
+    "answer": { "choiceId": "true" }
+  },
+  {
+    "id": "q4",
+    "type": "mcq",
+    "prompt": "What is the highest-grossing film of all time (not adjusted for inflation)?",
+    "choices": [
+      { "id": "a", "text": "Titanic" },
+      { "id": "b", "text": "Avatar" },
+      { "id": "c", "text": "Avengers: Endgame" },
+      { "id": "d", "text": "Star Wars: The Force Awakens" }
+    ],
+    "answer": { "choiceId": "b" }
+  },
+  {
+    "id": "q5",
+    "type": "mcq",
+    "prompt": "Who played Jack in the movie 'Titanic'?",
+    "choices": [
+      { "id": "a", "text": "Brad Pitt" },
+      { "id": "b", "text": "Tom Cruise" },
+      { "id": "c", "text": "Leonardo DiCaprio" },
+      { "id": "d", "text": "Matt Damon" }
+    ],
+    "answer": { "choiceId": "c" }
+  }
+]

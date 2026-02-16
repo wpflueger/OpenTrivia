@@ -1,0 +1,60 @@
+[
+  {
+    "id": "q1",
+    "type": "mcq",
+    "prompt": "What does 'HTTP' stand for?",
+    "choices": [
+      { "id": "a", "text": "HyperText Transfer Protocol" },
+      { "id": "b", "text": "High Tech Transfer Protocol" },
+      { "id": "c", "text": "Hyper Transfer Text Protocol" },
+      { "id": "d", "text": "Home Tool Transfer Protocol" }
+    ],
+    "answer": { "choiceId": "a" }
+  },
+  {
+    "id": "q2",
+    "type": "mcq",
+    "prompt": "Who co-founded Microsoft?",
+    "choices": [
+      { "id": "a", "text": "Steve Jobs" },
+      { "id": "b", "text": "Bill Gates and Paul Allen" },
+      { "id": "c", "text": "Mark Zuckerberg" },
+      { "id": "d", "text": "Jeff Bezos" }
+    ],
+    "answer": { "choiceId": "b" }
+  },
+  {
+    "id": "q3",
+    "type": "boolean",
+    "prompt": "Java and JavaScript are the same programming language.",
+    "choices": [
+      { "id": "true", "text": "True" },
+      { "id": "false", "text": "False" }
+    ],
+    "answer": { "choiceId": "false" }
+  },
+  {
+    "id": "q4",
+    "type": "mcq",
+    "prompt": "What does 'CPU' stand for?",
+    "choices": [
+      { "id": "a", "text": "Central Processing Unit" },
+      { "id": "b", "text": "Computer Personal Unit" },
+      { "id": "c", "text": "Central Program Utility" },
+      { "id": "d", "text": "Core Processing Unit" }
+    ],
+    "answer": { "choiceId": "a" }
+  },
+  {
+    "id": "q5",
+    "type": "mcq",
+    "prompt": "Which company developed the iPhone?",
+    "choices": [
+      { "id": "a", "text": "Samsung" },
+      { "id": "b", "text": "Google" },
+      { "id": "c", "text": "Apple" },
+      { "id": "d", "text": "Microsoft" }
+    ],
+    "answer": { "choiceId": "c" }
+  }
+]

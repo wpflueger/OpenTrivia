@@ -1,0 +1,13 @@
+{
+  "schemaVersion": "1.0",
+  "title": "General Knowledge",
+  "description": "A mix of general knowledge questions",
+  "author": "OpenTrivia",
+  "license": "MIT",
+  "rounds": [
+    {
+      "id": "round1",
+      "questions": [{ "file": "questions/questions.json" }]
+    }
+  ]
+}

@@ -1,0 +1,12 @@
+.git
+node_modules
+apps
+packages
+*.md
+docs
+OpenTrivia_*
+turbo.json
+tsconfig.json
+AGENTS.md
+package.json
+bun.lockb

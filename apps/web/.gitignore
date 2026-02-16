@@ -1,0 +1,29 @@
+# Dependencies
+node_modules/
+
+# Build outputs
+.next/
+dist/
+build/
+*.tsbuildinfo
+
+# Environment
+.env
+.env.local
+
+# Debug
+npm-debug.log*
+
+# IDE
+.vscode/
+*.swp
+
+# OS
+.DS_Store
+
+# Testing
+coverage/
+
+# Misc
+*.log
+.vercel

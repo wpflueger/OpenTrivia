@@ -1,0 +1,60 @@
+[
+  {
+    "id": "q1",
+    "type": "mcq",
+    "prompt": "How many players are on a soccer team on the field?",
+    "choices": [
+      { "id": "a", "text": "9" },
+      { "id": "b", "text": "10" },
+      { "id": "c", "text": "11" },
+      { "id": "d", "text": "12" }
+    ],
+    "answer": { "choiceId": "c" }
+  },
+  {
+    "id": "q2",
+    "type": "mcq",
+    "prompt": "Which country has won the most FIFA World Cups?",
+    "choices": [
+      { "id": "a", "text": "Germany" },
+      { "id": "b", "text": "Argentina" },
+      { "id": "c", "text": "Brazil" },
+      { "id": "d", "text": "Italy" }
+    ],
+    "answer": { "choiceId": "c" }
+  },
+  {
+    "id": "q3",
+    "type": "boolean",
+    "prompt": "Basketball was invented in the USA.",
+    "choices": [
+      { "id": "true", "text": "True" },
+      { "id": "false", "text": "False" }
+    ],
+    "answer": { "choiceId": "true" }
+  },
+  {
+    "id": "q4",
+    "type": "mcq",
+    "prompt": "How many rings are on the Olympic flag?",
+    "choices": [
+      { "id": "a", "text": "4" },
+      { "id": "b", "text": "5" },
+      { "id": "c", "text": "6" },
+      { "id": "d", "text": "7" }
+    ],
+    "answer": { "choiceId": "b" }
+  },
+  {
+    "id": "q5",
+    "type": "mcq",
+    "prompt": "In tennis, what is a score of zero called?",
+    "choices": [
+      { "id": "a", "text": "Nil" },
+      { "id": "b", "text": "Zero" },
+      { "id": "c", "text": "Love" },
+      { "id": "d", "text": "Nothing" }
+    ],
+    "answer": { "choiceId": "c" }
+  }
+]

@@ -1,0 +1,13 @@
+{
+  "schemaVersion": "1.0",
+  "title": "Movies",
+  "description": "Questions about films",
+  "author": "OpenTrivia",
+  "license": "MIT",
+  "rounds": [
+    {
+      "id": "round1",
+      "questions": [{ "file": "questions/questions.json" }]
+    }
+  ]
+}

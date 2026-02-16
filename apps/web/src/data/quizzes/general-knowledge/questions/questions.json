@@ -1,0 +1,60 @@
+[
+  {
+    "id": "q1",
+    "type": "mcq",
+    "prompt": "What is the capital of France?",
+    "choices": [
+      { "id": "a", "text": "London" },
+      { "id": "b", "text": "Paris" },
+      { "id": "c", "text": "Berlin" },
+      { "id": "d", "text": "Madrid" }
+    ],
+    "answer": { "choiceId": "b" }
+  },
+  {
+    "id": "q2",
+    "type": "mcq",
+    "prompt": "What is 2 + 2?",
+    "choices": [
+      { "id": "a", "text": "3" },
+      { "id": "b", "text": "4" },
+      { "id": "c", "text": "5" },
+      { "id": "d", "text": "6" }
+    ],
+    "answer": { "choiceId": "b" }
+  },
+  {
+    "id": "q3",
+    "type": "boolean",
+    "prompt": "The sky is blue.",
+    "choices": [
+      { "id": "true", "text": "True" },
+      { "id": "false", "text": "False" }
+    ],
+    "answer": { "choiceId": "true" }
+  },
+  {
+    "id": "q4",
+    "type": "mcq",
+    "prompt": "Which planet is known as the Red Planet?",
+    "choices": [
+      { "id": "a", "text": "Venus" },
+      { "id": "b", "text": "Mars" },
+      { "id": "c", "text": "Jupiter" },
+      { "id": "d", "text": "Saturn" }
+    ],
+    "answer": { "choiceId": "b" }
+  },
+  {
+    "id": "q5",
+    "type": "mcq",
+    "prompt": "What is the largest ocean on Earth?",
+    "choices": [
+      { "id": "a", "text": "Atlantic" },
+      { "id": "b", "text": "Indian" },
+      { "id": "c", "text": "Arctic" },
+      { "id": "d", "text": "Pacific" }
+    ],
+    "answer": { "choiceId": "d" }
+  }
+]
