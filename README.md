@@ -1,81 +1,71 @@
 # OpenTrivia
 
-Open source P2P trivia game platform - an open alternative to Kahoot.
+OpenTrivia is an open-source, host-led trivia game platform (open alternative to Kahoot).
 
-## Features
+## What it does
 
-- **Host-as-hub model** - Host device runs game server logic; players connect via WebRTC
-- **No accounts required** - Just share a room code to play
-- **Custom question packs** - Load trivia packs from any GitHub repository
-- **P2P powered** - Direct peer-to-peer connections for fast, reliable gameplay
+- Host creates a room and controls game flow.
+- Players join by room code or QR/join link on mobile or desktop.
+- Real-time gameplay runs over WebRTC data channels with host-authoritative scoring.
+- Packs can be loaded from local curated packs or Git-based pack sources.
 
-## Tech Stack
+## Current gameplay highlights
 
-- **Runtime**: Bun
-- **Framework**: Next.js 14+ (App Router)
-- **Language**: TypeScript (strict mode)
-- **UI**: React + Tailwind CSS
-- **State**: Zustand
-- **Testing**: Vitest
+- Countdown -> question -> reveal -> leaderboard -> final podium flow.
+- Time-decay scoring (faster correct answers earn more points).
+- Answer acknowledgement to players (`sending`, `accepted`, `rejected`).
+- Host-side live answer counts and reveal distribution.
+- Multi-player reliability and reconnect-oriented behavior tested with Playwright.
 
-## Getting Started
+## Tech stack
 
-### Prerequisites
+- Runtime: Bun
+- Framework: Next.js (App Router)
+- Language: TypeScript
+- UI: React + Tailwind CSS
+- State: Zustand
+- Testing: Vitest + Playwright (Python pytest wrappers)
 
-- Bun runtime installed (`curl -fsSL https://bun.sh/install | bash`)
+## Repository layout
 
-### Installation
+```text
+apps/web/              Next.js app (host/player UIs + API routes)
+packages/protocol/     Message types and validators
+packages/pack-schema/  Pack schema, loading, validation
+tests/                 End-to-end Playwright scenario tests
+AGENTS.md              Agent development guidance
+```
+
+## Local development
 
 ```bash
 bun install
-```
-
-### Development
-
-```bash
 bun run dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) to view the app.
+App runs at `http://localhost:3000`.
 
-### Build
-
-```bash
-bun run build
-```
-
-### Testing
-
-```bash
-bun test              # Run all tests
-bun test --watch      # Run tests in watch mode
-bun test --grep "pattern"  # Run tests matching pattern
-```
-
-### Type Checking
+## Validation commands
 
 ```bash
 bun run typecheck
+bun test
+bun run build
 ```
 
-## Project Structure
+For web-only checks used frequently in this repo:
 
-```
-├── apps/
-│   └── web/              # Next.js orchestrator + host/player clients
-├── packages/
-│   ├── protocol/         # Message types, validators
-│   └── pack-schema/      # JSON schema, loader
-├── docs/                 # Documentation
-└── AGENTS.md             # Developer guide
+```bash
+npm --prefix apps/web run typecheck
+npm --prefix apps/web run test -- --run src/stores/gameStore.test.ts src/test/game-flow.test.ts
+python3 -m pytest tests/test_vercel.py tests/test_complete_game.py -q
 ```
 
-## Documentation
+## Security notes
 
-- [Technical Spec](./OpenTrivia_Technical_Spec.md)
-- [Features TODO](./OpenTrivia_Features_TODO.md)
-- [Product Requirements](./OpenTrivia_PRD.md)
-- [Developer Guide](./AGENTS.md)
+- Signaling endpoints use host/player tokens and per-route rate limiting.
+- Redis-backed signaling storage is production-first; local dev can use in-memory sessions.
+- Keep sensitive values (`REDIS_URL`, secrets) server-side only.
 
 ## License
 
